@@ -1,7 +1,7 @@
 import { useState, useMemo } from 'react'
 import { parseAmount, formatMonth, formatMultiplier, getWeekStart, formatWeek } from './utils/csvParser'
 
-const POINTS_TO_DOLLARS = 0.006
+const POINTS_TO_DOLLARS = 0.008
 
 const STATUS_CONFIG = {
   PENDING:  { label: 'Pending',  className: 'status-pending' },
@@ -140,7 +140,7 @@ export default function CardPage({ cardName, cardNumber, transactions, rewardKey
               <div className="summary-value accent-value">
                 ${(summary.totalRewards * POINTS_TO_DOLLARS).toFixed(2)}
               </div>
-              <div className="summary-sub">@ $0.006 / pt</div>
+              <div className="summary-sub">@ $0.008 / pt</div>
             </div>
           )}
           <div className="summary-card">
@@ -148,11 +148,6 @@ export default function CardPage({ cardName, cardNumber, transactions, rewardKey
             <div className="summary-value rate-value">{summary.rewardRate.toFixed(2)}%</div>
             <div className="summary-sub">per $ spent</div>
           </div>
-          {/* <div className="summary-card">
-            <div className="summary-label">Rewards / Day</div>
-            <div className="summary-value rate-value">${summary.rewardPerDay.toFixed(2)}</div>
-            <div className="summary-sub">avg. reward dollars</div>
-          </div> */}
           <div className="summary-card">
             <div className="summary-label">Transactions</div>
             <div className="summary-value">{summary.count}</div>

@@ -43,6 +43,19 @@ export function formatWeek(weekStart) {
   return `${startStr} – ${endStr}`
 }
 
+// Parses savings CSV: date,"description",amount  (no headers, no quotes on date/amount)
+export function parseSavingsCSV(csvString) {
+  return csvString.trim().split('\n').filter(l => l.trim()).map(line => {
+    const match = line.match(/^(\d{4}-\d{2}-\d{2}),"([^"]+)",(-?[\d.]+)/)
+    if (!match) return null
+    return {
+      Date: match[1],
+      Description: match[2].trim(),
+      Amount: parseFloat(match[3]),
+    }
+  }).filter(Boolean)
+}
+
 export function formatMultiplier(raw) {
   if (!raw || !raw.trim()) return null
   return raw.trim().replace('.0x', 'x').replace('.0%', '%')

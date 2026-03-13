@@ -6,89 +6,119 @@
   flex-direction: column;
 }
 
-/* ─── Nav ───────────────────────────────────────────── */
+/* ─── App Header (global nav) ────────────────────────── */
 
-.nav {
-  background: #16161a;
+.app-header {
+  background: linear-gradient(135deg, #2d1b69 0%, #1a1a2e 40%, #0d2137 100%);
   position: sticky;
   top: 0;
   z-index: 100;
-  border-bottom: 1px solid #2a2a2e;
+  border-bottom: 1px solid rgba(255,255,255,0.08);
 }
 
-.nav-inner {
+.app-header-inner {
   max-width: 1100px;
   margin: 0 auto;
-  padding: 0 24px;
-  height: 60px;
+  padding: 20px 24px;
   display: flex;
   align-items: center;
   justify-content: space-between;
-  gap: 16px;
+  gap: 24px;
+  flex-wrap: wrap;
 }
 
-.nav-brand {
-  font-size: 15px;
-  font-weight: 600;
-  color: #e5e5ea;
+.app-header-left {
+  display: flex;
+  flex-direction: column;
+  gap: 3px;
+}
+
+.app-title {
+  font-size: 20px;
+  font-weight: 700;
+  color: #fff;
+  margin: 0;
   letter-spacing: 0.01em;
-  white-space: nowrap;
 }
 
-.nav-tabs {
-  display: flex;
-  gap: 6px;
+.app-subtitle {
+  font-size: 13px;
+  color: rgba(255,255,255,0.45);
+  letter-spacing: 0.03em;
+  margin: 0;
 }
 
-.nav-tab {
+.app-nav-chips {
   display: flex;
-  align-items: center;
-  gap: 7px;
-  padding: 7px 16px;
-  border: none;
+  gap: 10px;
+  flex-wrap: wrap;
+}
+
+/* ─── Nav Chips ──────────────────────────────────────── */
+
+.nav-chip {
+  padding: 6px 14px;
   border-radius: 20px;
-  background: transparent;
-  color: #8e8e93;
-  font-size: 14px;
-  font-weight: 500;
+  font-size: 12px;
+  font-weight: 600;
+  font-family: 'Courier New', monospace;
+  letter-spacing: 0.06em;
   cursor: pointer;
-  transition: background 0.15s, color 0.15s;
+  border: 1px solid rgba(255,255,255,0.18);
+  background: rgba(255,255,255,0.07);
+  color: rgba(255,255,255,0.45);
+  transition: background 0.15s, color 0.15s, border-color 0.15s;
 }
 
-.nav-tab:hover {
-  background: #2c2c2e;
-  color: #e5e5ea;
+.nav-chip:hover {
+  background: rgba(255,255,255,0.14);
+  color: rgba(255,255,255,0.75);
+  border-color: rgba(255,255,255,0.3);
 }
 
-.nav-tab-gold-active {
-  background: rgba(212, 165, 32, 0.18);
-  color: #d4a520;
-}
-
-.nav-tab-gold-active:hover {
+.nav-chip-gold-active {
   background: rgba(212, 165, 32, 0.25);
-  color: #d4a520;
+  color: #f5c842;
+  border-color: rgba(212, 165, 32, 0.5);
 }
 
-.nav-tab-blue-active {
-  background: rgba(0, 111, 207, 0.2);
-  color: #4dabf7;
+.nav-chip-gold-active:hover {
+  background: rgba(212, 165, 32, 0.35);
+  color: #f5c842;
 }
 
-.nav-tab-blue-active:hover {
-  background: rgba(0, 111, 207, 0.3);
-  color: #4dabf7;
+.nav-chip-blue-active {
+  background: rgba(0, 111, 207, 0.25);
+  color: #60b4ff;
+  border-color: rgba(0, 111, 207, 0.5);
 }
 
-.tab-dot {
-  width: 8px;
-  height: 8px;
-  border-radius: 50%;
-  flex-shrink: 0;
+.nav-chip-blue-active:hover {
+  background: rgba(0, 111, 207, 0.35);
+  color: #60b4ff;
 }
 
-.tab-dot-gold { background: #d4a520; }
-.tab-dot-blue { background: #006fcf; }
+.nav-chip-savings-active {
+  background: rgba(16, 185, 129, 0.25);
+  color: #6ee7b7;
+  border-color: rgba(16, 185, 129, 0.5);
+}
+
+.nav-chip-savings-active:hover {
+  background: rgba(16, 185, 129, 0.35);
+  color: #6ee7b7;
+}
+
+.nav-chip-checking-active {
+  background: rgba(249, 115, 22, 0.25);
+  color: #fed7aa;
+  border-color: rgba(249, 115, 22, 0.5);
+}
+
+.nav-chip-checking-active:hover {
+  background: rgba(249, 115, 22, 0.35);
+  color: #fed7aa;
+}
 
 /* ─── Card Hero ─────────────────────────────────────── */
 
@@ -483,13 +513,117 @@
 .status-adjusted { background: #fff3e0; color: #7c4200; }
 .status-redeemed { background: #e8eaf6; color: #283593; }
 
+/* ─── Combined Page ──────────────────────────────────── */
+
+.summary-row-combined {
+  grid-template-columns: repeat(6, 1fr);
+}
+
+.summary-row-combined .summary-card {
+  padding: 14px 12px;
+}
+
+.summary-row-combined .summary-value {
+  font-size: 20px;
+}
+
+.combined-accent-card  { border-color: #a855f7; }
+.combined-accent-value { color: #7c3aed; }
+
+.gold-reward-value { color: #b07a10; }
+.blue-reward-value { color: #006fcf; }
+
+.combined-view-active { color: #6d28d9 !important; }
+
+/* ─── Savings Page ───────────────────────────────────── */
+
+.savings-hero {
+  background: linear-gradient(135deg, #065f46 0%, #064e3b 50%, #022c22 100%);
+  padding: 32px 24px;
+}
+
+.savings-card-visual {
+  background: rgba(255,255,255,0.08);
+  border-color: rgba(255,255,255,0.18);
+}
+
+.savings-chip {
+  background: linear-gradient(135deg, #6ee7b7, #10b981);
+}
+
+.savings-logo { color: #6ee7b7; }
+
+.savings-accent-card  { border-color: #10b981; }
+.savings-accent-value { color: #065f46; }
+
+.savings-view-active { color: #065f46 !important; }
+
+.savings-interest-value { color: #065f46; font-weight: 600; }
+
+/* ── Checking page ─────────────────────────────────────────── */
+.checking-page { background: #fff7ed; }
+
+.checking-hero {
+  background: linear-gradient(135deg, #7c2d12 0%, #9a3412 50%, #431407 100%);
+  padding: 2rem 0;
+}
+
+.checking-card-visual {
+  background: linear-gradient(135deg, #c2410c, #ea580c);
+  border-color: rgba(255,255,255,0.18);
+}
+
+.checking-chip {
+  background: linear-gradient(135deg, #fed7aa, #f97316);
+}
+
+.checking-logo { color: #fed7aa; }
+
+.checking-accent-card  { border-color: #f97316; }
+.checking-accent-value { color: #7c2d12; }
+
+.checking-view-active { color: #7c2d12 !important; }
+
+.checking-interest-value { color: #7c2d12; font-weight: 600; }
+
+/* Card badges in the combined table */
+.card-badge {
+  display: inline-block;
+  padding: 2px 8px;
+  border-radius: 10px;
+  font-size: 11.5px;
+  font-weight: 700;
+  letter-spacing: 0.02em;
+}
+
+.card-badge-gold {
+  background: rgba(212, 165, 32, 0.15);
+  color: #8a6000;
+}
+
+.card-badge-blue {
+  background: rgba(0, 111, 207, 0.12);
+  color: #004a99;
+}
+
+.card-badge-savings {
+  background: rgba(16, 185, 129, 0.12);
+  color: #065f46;
+}
+
+.card-badge-checking {
+  background: rgba(249, 115, 22, 0.12);
+  color: #7c2d12;
+}
+
 /* ─── Responsive ─────────────────────────────────────── */
 
 @media (max-width: 700px) {
   .summary-row,
   .summary-row-4,
   .summary-row-5,
-  .summary-row-6 {
+  .summary-row-6,
+  .summary-row-combined {
     grid-template-columns: 1fr 1fr;
   }
 
