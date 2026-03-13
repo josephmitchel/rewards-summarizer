@@ -131,16 +131,24 @@
 }
 
 .gold-hero {
-  background: linear-gradient(135deg, #b8892a 0%, #7a5a14 50%, #5c400c 100%);
+  background: #ffffff;
 }
 
 .blue-hero {
-  background: linear-gradient(135deg, #006fcf 0%, #004a99 50%, #003070 100%);
+  background: #ffffff;
 }
 
 .card-hero-inner {
   max-width: 1100px;
   margin: 0 auto;
+}
+
+.card-image {
+  width: 320px;
+  height: auto;
+  border-radius: 16px;
+  box-shadow: 0 8px 32px rgba(0,0,0,0.4);
+  display: block;
 }
 
 .card-visual {
@@ -538,7 +546,7 @@
 /* ─── Savings Page ───────────────────────────────────── */
 
 .savings-hero {
-  background: linear-gradient(135deg, #065f46 0%, #064e3b 50%, #022c22 100%);
+  background: #ffffff;
   padding: 32px 24px;
 }
 
@@ -564,7 +572,7 @@
 .checking-page { background: #fff7ed; }
 
 .checking-hero {
-  background: linear-gradient(135deg, #7c2d12 0%, #9a3412 50%, #431407 100%);
+  background: #ffffff;
   padding: 2rem 0;
 }
 

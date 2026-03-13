@@ -1,10 +1,10 @@
 import { useState, useMemo } from 'react'
-import { formatMonth, getWeekStart, formatWeek } from './utils/csvParser'
+import { formatMonth } from './utils/csvParser'
+import savingsImg from './assets/savings.avif'
 
 const interestOnly = t => t.Description.toLowerCase().includes('interest')
 
 export default function SavingsPage({ transactions }) {
-  const [viewBy, setViewBy] = useState('month')
   const [selectedPeriod, setSelectedPeriod] = useState('all')
 
   const interestTransactions = useMemo(
@@ -17,29 +17,18 @@ export default function SavingsPage({ transactions }) {
     return Array.from(s).sort()
   }, [interestTransactions])
 
-  const weeks = useMemo(() => {
-    const s = new Set(interestTransactions.map(t => getWeekStart(t.Date)))
-    return Array.from(s).sort()
-  }, [interestTransactions])
-
-  const periods = useMemo(
-    () => ['all', ...(viewBy === 'month' ? months : weeks)],
-    [viewBy, months, weeks]
-  )
+  const periods = useMemo(() => ['all', ...months], [months])
 
   const currentIndex = periods.indexOf(selectedPeriod)
   const goBack    = () => { if (currentIndex > 0)                  setSelectedPeriod(periods[currentIndex - 1]) }
   const goForward = () => { if (currentIndex < periods.length - 1) setSelectedPeriod(periods[currentIndex + 1]) }
 
   const filtered = useMemo(() => {
-    let base = interestTransactions
-    if (selectedPeriod !== 'all') {
-      base = viewBy === 'month'
-        ? interestTransactions.filter(t => t.Date.startsWith(selectedPeriod))
-        : interestTransactions.filter(t => getWeekStart(t.Date) === selectedPeriod)
-    }
+    const base = selectedPeriod === 'all'
+      ? interestTransactions
+      : interestTransactions.filter(t => t.Date.startsWith(selectedPeriod))
     return [...base].sort((a, b) => b.Date.localeCompare(a.Date))
-  }, [interestTransactions, selectedPeriod, viewBy])
+  }, [interestTransactions, selectedPeriod])
 
   const summary = useMemo(() => {
     const totalInterest = filtered.reduce((s, t) => s + t.Amount, 0)
@@ -52,8 +41,6 @@ export default function SavingsPage({ transactions }) {
         const end   = new Date(dates[dates.length - 1] + 'T00:00:00')
         numDays = Math.max(1, Math.round((end - start) / 86400000) + 1)
       }
-    } else if (viewBy === 'week') {
-      numDays = 7
     } else {
       const [y, m] = selectedPeriod.split('-').map(Number)
       numDays = new Date(y, m, 0).getDate()
@@ -64,29 +51,18 @@ export default function SavingsPage({ transactions }) {
       interestPerDay: totalInterest / numDays,
       count: filtered.length,
     }
-  }, [filtered, selectedPeriod, viewBy])
+  }, [filtered, selectedPeriod])
 
-  const periodLabel = (period, view) => {
-    if (period === 'all') return view === 'month' ? 'All months' : 'All weeks'
-    return view === 'month' ? formatMonth(period) : formatWeek(period)
+  const periodLabel = (period) => {
+    if (period === 'all') return 'All months'
+    return formatMonth(period)
   }
 
   return (
     <div className="card-page savings-page">
       <div className="savings-hero">
         <div className="card-hero-inner">
-          <div className="card-visual savings-card-visual">
-            <div className="card-chip-row">
-              <div className="card-chip savings-chip" />
-            </div>
-            <div className="card-info-row">
-              <div>
-                <div className="card-name-text">Amex High Yield Savings</div>
-                <div className="card-num-text">HYSA Account</div>
-              </div>
-              <div className="card-logo-text savings-logo">AMEX</div>
-            </div>
-          </div>
+          <img src={savingsImg} alt="Amex High Yield Savings" className="card-image" />
         </div>
       </div>
 
@@ -95,7 +71,7 @@ export default function SavingsPage({ transactions }) {
           <div className="summary-card summary-card-accent savings-accent-card">
             <div className="summary-label">Interest Earned</div>
             <div className="summary-value savings-accent-value">${summary.totalInterest.toFixed(2)}</div>
-            <div className="summary-sub">{periodLabel(selectedPeriod, viewBy)}</div>
+            <div className="summary-sub">{periodLabel(selectedPeriod)}</div>
           </div>
           <div className="summary-card">
             <div className="summary-label">Interest / Day</div>
@@ -105,30 +81,15 @@ export default function SavingsPage({ transactions }) {
           <div className="summary-card">
             <div className="summary-label">Payments</div>
             <div className="summary-value">{summary.count}</div>
-            <div className="summary-sub">{periodLabel(selectedPeriod, viewBy)}</div>
+            <div className="summary-sub">{periodLabel(selectedPeriod)}</div>
           </div>
         </div>
 
         <div className="filter-section">
           <div className="filter-controls">
-            <div className="view-toggle">
-              <button
-                className={`view-btn ${viewBy === 'month' ? 'view-btn-active savings-view-active' : ''}`}
-                onClick={() => { setViewBy('month'); setSelectedPeriod('all') }}
-              >
-                Month
-              </button>
-              <button
-                className={`view-btn ${viewBy === 'week' ? 'view-btn-active savings-view-active' : ''}`}
-                onClick={() => { setViewBy('week'); setSelectedPeriod('all') }}
-              >
-                Week
-              </button>
-            </div>
-
             <div className="period-nav">
               <button className="nav-arrow" onClick={goBack} disabled={currentIndex === 0} aria-label="Previous period">‹</button>
-              <span className="period-nav-label">{periodLabel(selectedPeriod, viewBy)}</span>
+              <span className="period-nav-label">{periodLabel(selectedPeriod)}</span>
               <button className="nav-arrow" onClick={goForward} disabled={currentIndex === periods.length - 1} aria-label="Next period">›</button>
             </div>
           </div>

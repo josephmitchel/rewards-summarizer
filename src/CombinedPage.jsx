@@ -1,5 +1,5 @@
 import { useState, useMemo } from 'react'
-import { parseAmount, formatMonth, formatMultiplier, getWeekStart, formatWeek } from './utils/csvParser'
+import { parseAmount, formatMonth, formatMultiplier } from './utils/csvParser'
 
 const POINTS_TO_DOLLARS = 0.006
 
@@ -18,7 +18,6 @@ const SOURCE_CONFIG = {
 }
 
 export default function CombinedPage({ goldTransactions, blueTransactions, savingsTransactions, checkingTransactions }) {
-  const [viewBy, setViewBy] = useState('month')
   const [selectedPeriod, setSelectedPeriod] = useState('all')
 
   const allRows = useMemo(() => {
@@ -58,29 +57,18 @@ export default function CombinedPage({ goldTransactions, blueTransactions, savin
     return Array.from(monthSet).sort()
   }, [allRows])
 
-  const weeks = useMemo(() => {
-    const weekSet = new Set(allRows.map(t => getWeekStart(t.Date)))
-    return Array.from(weekSet).sort()
-  }, [allRows])
-
-  const periods = useMemo(
-    () => ['all', ...(viewBy === 'month' ? months : weeks)],
-    [viewBy, months, weeks]
-  )
+  const periods = useMemo(() => ['all', ...months], [months])
 
   const currentIndex = periods.indexOf(selectedPeriod)
   const goBack    = () => { if (currentIndex > 0)                  setSelectedPeriod(periods[currentIndex - 1]) }
   const goForward = () => { if (currentIndex < periods.length - 1) setSelectedPeriod(periods[currentIndex + 1]) }
 
   const filtered = useMemo(() => {
-    let base = allRows
-    if (selectedPeriod !== 'all') {
-      base = viewBy === 'month'
-        ? allRows.filter(t => t.Date.startsWith(selectedPeriod))
-        : allRows.filter(t => getWeekStart(t.Date) === selectedPeriod)
-    }
+    const base = selectedPeriod === 'all'
+      ? allRows
+      : allRows.filter(t => t.Date.startsWith(selectedPeriod))
     return [...base].sort((a, b) => b.Date.localeCompare(a.Date))
-  }, [allRows, selectedPeriod, viewBy])
+  }, [allRows, selectedPeriod])
 
   const summary = useMemo(() => {
     const cardRows     = filtered.filter(t => !t._isInterest)
@@ -109,9 +97,9 @@ export default function CombinedPage({ goldTransactions, blueTransactions, savin
     }
   }, [filtered])
 
-  const periodLabel = (period, view) => {
-    if (period === 'all') return view === 'month' ? 'All months' : 'All weeks'
-    return view === 'month' ? formatMonth(period) : formatWeek(period)
+  const periodLabel = (period) => {
+    if (period === 'all') return 'All months'
+    return formatMonth(period)
   }
 
   const amountDisplay = (raw) => {
@@ -128,7 +116,7 @@ export default function CombinedPage({ goldTransactions, blueTransactions, savin
           <div className="summary-card">
             <div className="summary-label">Total Spent</div>
             <div className="summary-value">${summary.totalSpent.toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</div>
-            <div className="summary-sub">{periodLabel(selectedPeriod, viewBy)}</div>
+            <div className="summary-sub">{periodLabel(selectedPeriod)}</div>
           </div>
           <div className="summary-card summary-card-accent combined-accent-card">
             <div className="summary-label">Total Income</div>
@@ -153,30 +141,15 @@ export default function CombinedPage({ goldTransactions, blueTransactions, savin
           <div className="summary-card">
             <div className="summary-label">Transactions</div>
             <div className="summary-value">{summary.count}</div>
-            <div className="summary-sub">{periodLabel(selectedPeriod, viewBy)}</div>
+            <div className="summary-sub">{periodLabel(selectedPeriod)}</div>
           </div>
         </div>
 
         <div className="filter-section">
           <div className="filter-controls">
-            <div className="view-toggle">
-              <button
-                className={`view-btn ${viewBy === 'month' ? 'view-btn-active combined-view-active' : ''}`}
-                onClick={() => { setViewBy('month'); setSelectedPeriod('all') }}
-              >
-                Month
-              </button>
-              <button
-                className={`view-btn ${viewBy === 'week' ? 'view-btn-active combined-view-active' : ''}`}
-                onClick={() => { setViewBy('week'); setSelectedPeriod('all') }}
-              >
-                Week
-              </button>
-            </div>
-
             <div className="period-nav">
               <button className="nav-arrow" onClick={goBack} disabled={currentIndex === 0} aria-label="Previous period">‹</button>
-              <span className="period-nav-label">{periodLabel(selectedPeriod, viewBy)}</span>
+              <span className="period-nav-label">{periodLabel(selectedPeriod)}</span>
               <button className="nav-arrow" onClick={goForward} disabled={currentIndex === periods.length - 1} aria-label="Next period">›</button>
             </div>
           </div>

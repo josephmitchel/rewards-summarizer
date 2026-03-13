@@ -1,5 +1,9 @@
 import { useState, useMemo } from 'react'
-import { parseAmount, formatMonth, formatMultiplier, getWeekStart, formatWeek } from './utils/csvParser'
+import { parseAmount, formatMonth, formatMultiplier } from './utils/csvParser'
+import goldImg from './assets/gold.avif'
+import blueImg from './assets/blue.avif'
+
+const CARD_IMAGES = { gold: goldImg, blue: blueImg }
 
 const POINTS_TO_DOLLARS = 0.008
 
@@ -10,42 +14,27 @@ const STATUS_CONFIG = {
   REDEEMED: { label: 'Redeemed', className: 'status-redeemed' },
 }
 
-export default function CardPage({ cardName, cardNumber, transactions, rewardKey, rewardLabel, isPoints, theme }) {
-  const [viewBy, setViewBy] = useState('month')
+export default function CardPage({ cardName, transactions, rewardKey, rewardLabel, isPoints, theme }) {
   const [selectedPeriod, setSelectedPeriod] = useState('all')
 
   const months = useMemo(() => {
     const monthSet = new Set(transactions.map(t => t.Date.substring(0, 7)))
-    return Array.from(monthSet).sort() // ascending
+    return Array.from(monthSet).sort()
   }, [transactions])
 
-  const weeks = useMemo(() => {
-    const weekSet = new Set(transactions.map(t => getWeekStart(t.Date)))
-    return Array.from(weekSet).sort() // ascending
-  }, [transactions])
+  const periods = useMemo(() => ['all', ...months], [months])
 
-  // ['all', oldest…newest]
-  const periods = useMemo(
-    () => ['all', ...(viewBy === 'month' ? months : weeks)],
-    [viewBy, months, weeks]
-  )
-
-  const currentIndex = periods.indexOf(selectedPeriod === 'all' ? 'all' : selectedPeriod)
+  const currentIndex = periods.indexOf(selectedPeriod)
 
   const goBack    = () => { if (currentIndex > 0)                    setSelectedPeriod(periods[currentIndex - 1]) }
   const goForward = () => { if (currentIndex < periods.length - 1)   setSelectedPeriod(periods[currentIndex + 1]) }
 
   const filtered = useMemo(() => {
-    let base = transactions
-    if (selectedPeriod !== 'all') {
-      if (viewBy === 'month') {
-        base = transactions.filter(t => t.Date.startsWith(selectedPeriod))
-      } else {
-        base = transactions.filter(t => getWeekStart(t.Date) === selectedPeriod)
-      }
-    }
+    const base = selectedPeriod === 'all'
+      ? transactions
+      : transactions.filter(t => t.Date.startsWith(selectedPeriod))
     return [...base].sort((a, b) => b.Date.localeCompare(a.Date))
-  }, [transactions, selectedPeriod, viewBy])
+  }, [transactions, selectedPeriod])
 
   const summary = useMemo(() => {
     const totalSpent = filtered.reduce((sum, t) => {
@@ -67,8 +56,6 @@ export default function CardPage({ cardName, cardNumber, transactions, rewardKey
         const end   = new Date(dates[dates.length - 1] + 'T00:00:00')
         numDays = Math.max(1, Math.round((end - start) / 86400000) + 1)
       }
-    } else if (viewBy === 'week') {
-      numDays = 7
     } else {
       const [y, m] = selectedPeriod.split('-').map(Number)
       numDays = new Date(y, m, 0).getDate()
@@ -76,7 +63,7 @@ export default function CardPage({ cardName, cardNumber, transactions, rewardKey
 
     const rewardPerDay = rewardDollars / numDays
     return { totalSpent, totalRewards, rewardDollars, rewardRate, rewardPerDay, count: filtered.length }
-  }, [filtered, rewardKey, isPoints, selectedPeriod, viewBy])
+  }, [filtered, rewardKey, isPoints, selectedPeriod])
 
   const rewardDisplay = (raw) => {
     const val = parseAmount(raw)
@@ -87,9 +74,9 @@ export default function CardPage({ cardName, cardNumber, transactions, rewardKey
     return `${sign}$${abs.toFixed(2)}`
   }
 
-  const periodLabel = (period, view) => {
-    if (period === 'all') return view === 'month' ? 'All months' : 'All weeks'
-    return view === 'month' ? formatMonth(period) : formatWeek(period)
+  const periodLabel = (period) => {
+    if (period === 'all') return 'All months'
+    return formatMonth(period)
   }
 
   const amountDisplay = (raw) => {
@@ -103,18 +90,7 @@ export default function CardPage({ cardName, cardNumber, transactions, rewardKey
     <div className={`card-page ${theme}-page`}>
       <div className={`card-hero ${theme}-hero`}>
         <div className="card-hero-inner">
-          <div className="card-visual">
-            <div className="card-chip-row">
-              <div className="card-chip" />
-            </div>
-            <div className="card-info-row">
-              <div>
-                <div className="card-name-text">{cardName}</div>
-                <div className="card-num-text">···· {cardNumber.replace('-', '')}</div>
-              </div>
-              <div className={`card-logo-text ${theme}-logo`}>AMEX</div>
-            </div>
-          </div>
+          <img src={CARD_IMAGES[theme]} alt={cardName} className="card-image" />
         </div>
       </div>
 
@@ -123,7 +99,7 @@ export default function CardPage({ cardName, cardNumber, transactions, rewardKey
           <div className="summary-card">
             <div className="summary-label">Total Spent</div>
             <div className="summary-value">${summary.totalSpent.toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</div>
-            <div className="summary-sub">{periodLabel(selectedPeriod, viewBy)}</div>
+            <div className="summary-sub">{periodLabel(selectedPeriod)}</div>
           </div>
           <div className={`summary-card summary-card-accent ${theme}-accent-card`}>
             <div className="summary-label">Total {rewardLabel}</div>
@@ -132,7 +108,7 @@ export default function CardPage({ cardName, cardNumber, transactions, rewardKey
                 ? `${Math.round(summary.totalRewards).toLocaleString()} pts`
                 : `$${summary.totalRewards.toFixed(2)}`}
             </div>
-            <div className="summary-sub">{periodLabel(selectedPeriod, viewBy)}</div>
+            <div className="summary-sub">{periodLabel(selectedPeriod)}</div>
           </div>
           {isPoints && (
             <div className={`summary-card summary-card-accent ${theme}-accent-card`}>
@@ -140,7 +116,6 @@ export default function CardPage({ cardName, cardNumber, transactions, rewardKey
               <div className="summary-value accent-value">
                 ${(summary.totalRewards * POINTS_TO_DOLLARS).toFixed(2)}
               </div>
-              <div className="summary-sub">@ $0.008 / pt</div>
             </div>
           )}
           <div className="summary-card">
@@ -151,27 +126,12 @@ export default function CardPage({ cardName, cardNumber, transactions, rewardKey
           <div className="summary-card">
             <div className="summary-label">Transactions</div>
             <div className="summary-value">{summary.count}</div>
-            <div className="summary-sub">{periodLabel(selectedPeriod, viewBy)}</div>
+            <div className="summary-sub">{periodLabel(selectedPeriod)}</div>
           </div>
         </div>
 
         <div className="filter-section">
           <div className="filter-controls">
-            <div className="view-toggle">
-              <button
-                className={`view-btn ${viewBy === 'month' ? `view-btn-active ${theme}-view-active` : ''}`}
-                onClick={() => { setViewBy('month'); setSelectedPeriod('all') }}
-              >
-                Month
-              </button>
-              <button
-                className={`view-btn ${viewBy === 'week' ? `view-btn-active ${theme}-view-active` : ''}`}
-                onClick={() => { setViewBy('week'); setSelectedPeriod('all') }}
-              >
-                Week
-              </button>
-            </div>
-
             <div className="period-nav">
               <button
                 className="nav-arrow"
@@ -182,7 +142,7 @@ export default function CardPage({ cardName, cardNumber, transactions, rewardKey
                 ‹
               </button>
               <span className="period-nav-label">
-                {periodLabel(selectedPeriod, viewBy)}
+                {periodLabel(selectedPeriod)}
               </span>
               <button
                 className="nav-arrow"

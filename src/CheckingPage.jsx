@@ -1,9 +1,9 @@
 import { useState, useMemo } from 'react'
-import { formatMonth, getWeekStart, formatWeek } from './utils/csvParser'
+import { formatMonth } from './utils/csvParser'
 import { checkingTransactions as allCheckingTransactions } from './data/amex-checking/data'
+import checkingImg from './assets/checking.avif'
 
 export default function CheckingPage() {
-  const [viewBy, setViewBy] = useState('month')
   const [selectedPeriod, setSelectedPeriod] = useState('all')
 
   const transactions = allCheckingTransactions
@@ -13,29 +13,18 @@ export default function CheckingPage() {
     return Array.from(s).sort()
   }, [transactions])
 
-  const weeks = useMemo(() => {
-    const s = new Set(transactions.map(t => getWeekStart(t.Date)))
-    return Array.from(s).sort()
-  }, [transactions])
-
-  const periods = useMemo(
-    () => ['all', ...(viewBy === 'month' ? months : weeks)],
-    [viewBy, months, weeks]
-  )
+  const periods = useMemo(() => ['all', ...months], [months])
 
   const currentIndex = periods.indexOf(selectedPeriod)
   const goBack    = () => { if (currentIndex > 0)                  setSelectedPeriod(periods[currentIndex - 1]) }
   const goForward = () => { if (currentIndex < periods.length - 1) setSelectedPeriod(periods[currentIndex + 1]) }
 
   const filtered = useMemo(() => {
-    let base = transactions
-    if (selectedPeriod !== 'all') {
-      base = viewBy === 'month'
-        ? transactions.filter(t => t.Date.startsWith(selectedPeriod))
-        : transactions.filter(t => getWeekStart(t.Date) === selectedPeriod)
-    }
+    const base = selectedPeriod === 'all'
+      ? transactions
+      : transactions.filter(t => t.Date.startsWith(selectedPeriod))
     return [...base].sort((a, b) => b.Date.localeCompare(a.Date))
-  }, [transactions, selectedPeriod, viewBy])
+  }, [transactions, selectedPeriod])
 
   const summary = useMemo(() => {
     const totalInterest = filtered.reduce((s, t) => s + t.Amount, 0)
@@ -48,8 +37,6 @@ export default function CheckingPage() {
         const end   = new Date(dates[dates.length - 1] + 'T00:00:00')
         numDays = Math.max(1, Math.round((end - start) / 86400000) + 1)
       }
-    } else if (viewBy === 'week') {
-      numDays = 7
     } else {
       const [y, m] = selectedPeriod.split('-').map(Number)
       numDays = new Date(y, m, 0).getDate()
@@ -60,29 +47,18 @@ export default function CheckingPage() {
       interestPerDay: totalInterest / numDays,
       count: filtered.length,
     }
-  }, [filtered, selectedPeriod, viewBy])
+  }, [filtered, selectedPeriod])
 
-  const periodLabel = (period, view) => {
-    if (period === 'all') return view === 'month' ? 'All months' : 'All weeks'
-    return view === 'month' ? formatMonth(period) : formatWeek(period)
+  const periodLabel = (period) => {
+    if (period === 'all') return 'All months'
+    return formatMonth(period)
   }
 
   return (
     <div className="card-page checking-page">
       <div className="checking-hero">
         <div className="card-hero-inner">
-          <div className="card-visual checking-card-visual">
-            <div className="card-chip-row">
-              <div className="card-chip checking-chip" />
-            </div>
-            <div className="card-info-row">
-              <div>
-                <div className="card-name-text">Amex Rewards Checking</div>
-                <div className="card-num-text">Checking Account</div>
-              </div>
-              <div className="card-logo-text checking-logo">AMEX</div>
-            </div>
-          </div>
+          <img src={checkingImg} alt="Amex Rewards Checking" className="card-image" />
         </div>
       </div>
 
@@ -91,7 +67,7 @@ export default function CheckingPage() {
           <div className="summary-card summary-card-accent checking-accent-card">
             <div className="summary-label">Interest Earned</div>
             <div className="summary-value checking-accent-value">${summary.totalInterest.toFixed(2)}</div>
-            <div className="summary-sub">{periodLabel(selectedPeriod, viewBy)}</div>
+            <div className="summary-sub">{periodLabel(selectedPeriod)}</div>
           </div>
           <div className="summary-card">
             <div className="summary-label">Interest / Day</div>
@@ -101,30 +77,15 @@ export default function CheckingPage() {
           <div className="summary-card">
             <div className="summary-label">Payments</div>
             <div className="summary-value">{summary.count}</div>
-            <div className="summary-sub">{periodLabel(selectedPeriod, viewBy)}</div>
+            <div className="summary-sub">{periodLabel(selectedPeriod)}</div>
           </div>
         </div>
 
         <div className="filter-section">
           <div className="filter-controls">
-            <div className="view-toggle">
-              <button
-                className={`view-btn ${viewBy === 'month' ? 'view-btn-active checking-view-active' : ''}`}
-                onClick={() => { setViewBy('month'); setSelectedPeriod('all') }}
-              >
-                Month
-              </button>
-              <button
-                className={`view-btn ${viewBy === 'week' ? 'view-btn-active checking-view-active' : ''}`}
-                onClick={() => { setViewBy('week'); setSelectedPeriod('all') }}
-              >
-                Week
-              </button>
-            </div>
-
             <div className="period-nav">
               <button className="nav-arrow" onClick={goBack} disabled={currentIndex === 0} aria-label="Previous period">‹</button>
-              <span className="period-nav-label">{periodLabel(selectedPeriod, viewBy)}</span>
+              <span className="period-nav-label">{periodLabel(selectedPeriod)}</span>
               <button className="nav-arrow" onClick={goForward} disabled={currentIndex === periods.length - 1} aria-label="Next period">›</button>
             </div>
           </div>
