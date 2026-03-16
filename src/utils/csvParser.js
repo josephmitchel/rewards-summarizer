@@ -1,5 +1,5 @@
 export function parseCSV(csvString) {
-  const lines = csvString.trim().split('\n')
+  const lines = csvString.trim().split(/\r?\n/)
   const headers = parseLine(lines[0])
   return lines.slice(1).filter(l => l.trim()).map(line => {
     const values = parseLine(line)
@@ -45,7 +45,7 @@ export function formatWeek(weekStart) {
 
 // Parses savings CSV: date,"description",amount  (no headers, no quotes on date/amount)
 export function parseSavingsCSV(csvString) {
-  return csvString.trim().split('\n').filter(l => l.trim()).map(line => {
+  return csvString.trim().split(/\r?\n/).filter(l => l.trim()).map(line => {
     const match = line.match(/^(\d{4}-\d{2}-\d{2}),"([^"]+)",(-?[\d.]+)/)
     if (!match) return null
     return {
