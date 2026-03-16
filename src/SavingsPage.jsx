@@ -1,6 +1,6 @@
 import { useState, useMemo } from 'react'
 import { formatMonth } from './utils/csvParser'
-import savingsImg from './assets/savings.avif'
+
 import SpendingChart from './SpendingChart'
 
 const interestOnly = t => t.Description.toLowerCase().includes('interest')
@@ -67,12 +67,6 @@ export default function SavingsPage({ transactions }) {
 
   return (
     <div className="card-page savings-page">
-      <div className="savings-hero">
-        <div className="card-hero-inner">
-          <img src={savingsImg} alt="Amex High Yield Savings" className="card-image" />
-        </div>
-      </div>
-
       <div className="page-body">
         <div className="summary-row">
           <div className="summary-card summary-card-accent savings-accent-card">

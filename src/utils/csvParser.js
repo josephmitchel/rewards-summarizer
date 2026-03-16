@@ -21,7 +21,7 @@ export function parseAmount(str) {
 export function formatMonth(yearMonth) {
   const [year, month] = yearMonth.split('-')
   const date = new Date(parseInt(year), parseInt(month) - 1)
-  return date.toLocaleDateString('en-US', { month: 'long', year: 'numeric' })
+  return date.toLocaleDateString('en-US', { month: 'short', year: 'numeric' })
 }
 
 // Returns the Monday of the week containing dateStr (YYYY-MM-DD)

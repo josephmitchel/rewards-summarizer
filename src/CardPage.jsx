@@ -1,10 +1,6 @@
 import { useState, useMemo } from 'react'
 import { parseAmount, formatMonth, formatMultiplier } from './utils/csvParser'
-import goldImg from './assets/gold.avif'
-import blueImg from './assets/blue.avif'
 import SpendingChart from './SpendingChart'
-
-const CARD_IMAGES = { gold: goldImg, blue: blueImg }
 
 const POINTS_TO_DOLLARS = 0.008
 
@@ -15,7 +11,7 @@ const STATUS_CONFIG = {
   REDEEMED: { label: 'Redeemed', className: 'status-redeemed' },
 }
 
-export default function CardPage({ cardName, transactions, rewardKey, rewardLabel, isPoints, theme }) {
+export default function CardPage({ transactions, rewardKey, rewardLabel, isPoints, theme }) {
   const [selectedPeriod, setSelectedPeriod] = useState(() => {
     const yrs = [...new Set(transactions.map(t => t.Date.substring(0, 4)))].sort()
     return yrs.at(-1) || String(new Date().getFullYear())
@@ -56,7 +52,7 @@ export default function CardPage({ cardName, transactions, rewardKey, rewardLabe
       return sum + (val > 0 ? val : 0)
     }, 0)
     const rewardDollars = isPoints ? totalRewards * POINTS_TO_DOLLARS : totalRewards
-    const rewardRate = totalSpent > 0 ? (rewardDollars / totalSpent) * 100 : 0
+    const rewardRate = totalSpent > 0 ? rewardDollars / totalSpent : 0
 
     let numDays = 1
     if (selectedPeriod.length === 4) {
@@ -73,7 +69,16 @@ export default function CardPage({ cardName, transactions, rewardKey, rewardLabe
     }
 
     const rewardPerDay = rewardDollars / numDays
-    return { totalSpent, totalRewards, rewardDollars, rewardRate, rewardPerDay, count: filtered.length }
+
+    const eligible = filtered.filter(t => t.Status === 'EARNED' || t.Status === 'PENDING')
+    const avgMultiplier = eligible.length > 0
+      ? eligible.reduce((sum, t) => {
+          const parsed = parseFloat(t.Multiplier)
+          return sum + (isNaN(parsed) ? 1 : parsed)
+        }, 0) / eligible.length
+      : 0
+
+    return { totalSpent, totalRewards, rewardDollars, rewardRate, rewardPerDay, avgMultiplier, count: filtered.length }
   }, [filtered, rewardKey, isPoints, selectedPeriod])
 
   const rewardDisplay = (raw) => {
@@ -96,14 +101,8 @@ export default function CardPage({ cardName, transactions, rewardKey, rewardLabe
 
   return (
     <div className={`card-page ${theme}-page`}>
-      <div className={`card-hero ${theme}-hero`}>
-        <div className="card-hero-inner">
-          <img src={CARD_IMAGES[theme]} alt={cardName} className="card-image" />
-        </div>
-      </div>
-
       <div className="page-body">
-        <div className={`summary-row ${isPoints ? 'summary-row-6' : 'summary-row-5'}`}>
+        <div className={`summary-row ${isPoints ? 'summary-row-7' : 'summary-row-6'}`}>
           <div className="summary-card">
             <div className="summary-label">Total Spent</div>
             <div className="summary-value">${summary.totalSpent.toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</div>
@@ -127,9 +126,14 @@ export default function CardPage({ cardName, transactions, rewardKey, rewardLabe
             </div>
           )}
           <div className="summary-card">
-            <div className="summary-label">Reward Rate</div>
-            <div className="summary-value rate-value">{summary.rewardRate.toFixed(2)}%</div>
-            <div className="summary-sub">per $ spent</div>
+            <div className="summary-label">Earned per $1</div>
+            <div className="summary-value rate-value">${summary.rewardRate.toFixed(3)}</div>
+            <div className="summary-sub">avg return</div>
+          </div>
+          <div className="summary-card">
+            <div className="summary-label">Avg Bonus Rate</div>
+            <div className="summary-value rate-value">{summary.avgMultiplier.toFixed(1)}{isPoints ? 'x' : '%'}</div>
+            <div className="summary-sub">per transaction</div>
           </div>
           <div className="summary-card">
             <div className="summary-label">Transactions</div>
@@ -141,9 +145,12 @@ export default function CardPage({ cardName, transactions, rewardKey, rewardLabe
         <SpendingChart
           transactions={transactions}
           selectedPeriod={selectedPeriod}
-          valueKey="Amount"
-          valueLabel="Spending"
+          valueKey={rewardKey}
+          valueLabel={rewardLabel}
           color={theme === 'gold' ? '#b8892a' : '#006fcf'}
+          isPoints={isPoints}
+          dailyYear
+          yMax={{ year: 1000, month: 100 }}
         />
 
         <div className="filter-section">
@@ -195,11 +202,7 @@ export default function CardPage({ cardName, transactions, rewardKey, rewardLabe
                     <td className="col-date">{tx.Date}</td>
                     <td className="col-desc">{tx.Description}</td>
                     <td className="col-mult">
-                      {mult ? (
-                        <span className={`mult-badge ${theme}-mult`}>{mult}</span>
-                      ) : (
-                        <span className="mult-base">—</span>
-                      )}
+                      <span className={`mult-badge ${theme}-mult`}>{mult || (isPoints ? '1x' : '1%')}</span>
                     </td>
                     <td className={`col-right col-amount ${amt < 0 ? 'neg-amount' : ''}`}>
                       {amountDisplay(tx.Amount)}

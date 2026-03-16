@@ -5,6 +5,10 @@ import SavingsPage from './SavingsPage'
 import CheckingPage from './CheckingPage'
 import { parseCSV, parseSavingsCSV } from './utils/csvParser'
 import { checkingTransactions } from './data/amex-checking/data'
+import goldImg from './assets/gold.avif'
+import blueImg from './assets/blue.avif'
+import savingsImg from './assets/savings.avif'
+import checkingImg from './assets/checking.avif'
 import './App.css'
 
 import goldFeb from './data/amex-gold/2026-02.csv?raw'
@@ -32,38 +36,22 @@ export default function App() {
   return (
     <div className="app">
       <header className="app-header">
-        <div className="app-header-inner">
-          <div className="app-header-left">
-            {/* <h1 className="app-title">Combined Overview</h1> */}
-            {/* <p className="app-subtitle">Amex Gold · Amex Blue Cash · Amex Savings · Amex Checking</p> */}
-          </div>
-          <nav className="app-nav-chips">
+        <nav className="card-nav">
+          {[
+            { key: 'gold', img: goldImg, alt: 'Amex Gold' },
+            { key: 'blue', img: blueImg, alt: 'Amex Blue Cash' },
+            { key: 'savings', img: savingsImg, alt: 'Amex Savings' },
+            { key: 'checking', img: checkingImg, alt: 'Amex Checking' },
+          ].map(card => (
             <button
-              className={`nav-chip ${activePage === 'gold' ? 'nav-chip-gold-active' : ''}`}
-              onClick={() => toggle('gold')}
+              key={card.key}
+              className={`card-nav-btn ${activePage === card.key ? 'card-nav-active' : ''}`}
+              onClick={() => toggle(card.key)}
             >
-              Gold ···· 01008
+              <img src={card.img} alt={card.alt} className="card-nav-img" />
             </button>
-            <button
-              className={`nav-chip ${activePage === 'blue' ? 'nav-chip-blue-active' : ''}`}
-              onClick={() => toggle('blue')}
-            >
-              Blue ···· 41003
-            </button>
-            <button
-              className={`nav-chip ${activePage === 'savings' ? 'nav-chip-savings-active' : ''}`}
-              onClick={() => toggle('savings')}
-            >
-              Savings
-            </button>
-            <button
-              className={`nav-chip ${activePage === 'checking' ? 'nav-chip-checking-active' : ''}`}
-              onClick={() => toggle('checking')}
-            >
-              Checking
-            </button>
-          </nav>
-        </div>
+          ))}
+        </nav>
       </header>
 
       {activePage === null && (
@@ -76,8 +64,6 @@ export default function App() {
       )}
       {activePage === 'gold' && (
         <CardPage
-          cardName="Amex Gold"
-          cardNumber="-01008"
           transactions={goldTransactions}
           rewardKey="Points/Miles"
           rewardLabel="Points"
@@ -87,8 +73,6 @@ export default function App() {
       )}
       {activePage === 'blue' && (
         <CardPage
-          cardName="Amex Blue Cash Preferred"
-          cardNumber="-41003"
           transactions={blueTransactions}
           rewardKey="Cash"
           rewardLabel="Cash Back"

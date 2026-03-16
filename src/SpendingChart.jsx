@@ -34,11 +34,31 @@ function getValue(t, valueKey, isPoints) {
   return isPoints ? Math.max(0, val) * 0.008 : Math.max(0, val)
 }
 
-export default function SpendingChart({ transactions, selectedPeriod, valueKey, valueLabel, color, isPoints }) {
+export default function SpendingChart({ transactions, selectedPeriod, valueKey, valueLabel, color, isPoints, yMax, dailyYear }) {
   const data = useMemo(() => {
     const isYear = selectedPeriod.length === 4
 
-    if (isYear) {
+    if (isYear && dailyYear) {
+      // Aggregate by day across the entire year
+      const map = {}
+      transactions
+        .filter(t => t.Date.startsWith(selectedPeriod))
+        .forEach(t => {
+          map[t.Date] = (map[t.Date] || 0) + getValue(t, valueKey, isPoints)
+        })
+
+      const year = parseInt(selectedPeriod)
+      const monthNames = ['Jan','Feb','Mar','Apr','May','Jun','Jul','Aug','Sep','Oct','Nov','Dec']
+      const result = []
+      for (let mo = 0; mo < 12; mo++) {
+        const daysInMonth = new Date(year, mo + 1, 0).getDate()
+        for (let d = 1; d <= daysInMonth; d++) {
+          const key = `${selectedPeriod}-${String(mo + 1).padStart(2, '0')}-${String(d).padStart(2, '0')}`
+          result.push({ label: `${monthNames[mo]} ${d}`, tickLabel: d === 1 ? monthNames[mo] : null, value: map[key] ?? null })
+        }
+      }
+      return result
+    } else if (isYear) {
       // Aggregate by month within this year
       const map = {}
       transactions
@@ -48,14 +68,10 @@ export default function SpendingChart({ transactions, selectedPeriod, valueKey, 
           map[month] = (map[month] || 0) + getValue(t, valueKey, isPoints)
         })
 
-      const now = new Date()
-      const isCurrentYear = parseInt(selectedPeriod) === now.getFullYear()
-      const maxMonth = isCurrentYear ? now.getMonth() + 1 : 12
-
       const result = []
-      for (let mo = 1; mo <= maxMonth; mo++) {
+      for (let mo = 1; mo <= 12; mo++) {
         const key = `${selectedPeriod}-${String(mo).padStart(2, '0')}`
-        result.push({ label: formatMonth(key), value: map[key] || 0 })
+        result.push({ label: formatMonth(key), value: map[key] ?? null })
       }
       return result
     } else {
@@ -71,27 +87,52 @@ export default function SpendingChart({ transactions, selectedPeriod, valueKey, 
       const daysInMonth = new Date(y, m, 0).getDate()
       const result = []
       for (let d = 1; d <= daysInMonth; d++) {
-        result.push({ label: `${m}/${d}`, value: map[d] || 0 })
+        result.push({ label: `${m}/${d}`, value: map[d] ?? null })
       }
       return result
     }
   }, [transactions, selectedPeriod, valueKey, isPoints])
 
-  const hasData = data.some(d => d.value > 0)
+  // Convert to cumulative running total
+  // - Carry forward the sum through gaps within the data range
+  // - Use null after the last data point (blank trailing space)
+  const cumulativeData = useMemo(() => {
+    // Find the last index that has actual data
+    let lastDataIndex = -1
+    for (let i = data.length - 1; i >= 0; i--) {
+      if (data[i].value !== null) { lastDataIndex = i; break }
+    }
+    if (lastDataIndex === -1) return data
+
+    let sum = 0
+    return data.map((d, i) => {
+      if (i > lastDataIndex) return { ...d, value: null }
+      if (d.value !== null) sum += d.value
+      return { ...d, value: sum }
+    })
+  }, [data])
+
+  const hasData = cumulativeData.some(d => d.value !== null && d.value > 0)
   if (!hasData) return null
 
   return (
     <div className="chart-container">
       <div className="chart-title">{valueLabel} over time</div>
       <ResponsiveContainer width="100%" height={180}>
-        <LineChart data={data} margin={{ top: 8, right: 16, left: 0, bottom: 0 }}>
+        <LineChart data={cumulativeData} margin={{ top: 8, right: 16, left: 0, bottom: 0 }}>
           <CartesianGrid strokeDasharray="3 3" stroke="#f0f0f5" vertical={false} />
           <XAxis
             dataKey="label"
-            tick={{ fontSize: 11, fill: '#aeaeb2' }}
+            tick={selectedPeriod.length === 4 && dailyYear
+              ? ({ x, y, payload: tickPayload }) => {
+                  const entry = cumulativeData[tickPayload.index]
+                  if (!entry?.tickLabel) return null
+                  return <text x={x} y={y + 12} textAnchor="middle" fontSize={11} fill="#aeaeb2">{entry.tickLabel}</text>
+                }
+              : { fontSize: 11, fill: '#aeaeb2' }}
             tickLine={false}
             axisLine={false}
-            interval="preserveStartEnd"
+            interval={selectedPeriod.length === 4 && dailyYear ? 0 : 'preserveStartEnd'}
           />
           <YAxis
             tickFormatter={formatDollar}
@@ -99,15 +140,17 @@ export default function SpendingChart({ transactions, selectedPeriod, valueKey, 
             tickLine={false}
             axisLine={false}
             width={48}
+            domain={[0, (typeof yMax === 'object' ? (selectedPeriod.length === 4 ? yMax.year : yMax.month) : yMax) || 'auto']}
           />
           <Tooltip content={<CustomTooltip valueLabel={valueLabel} />} />
           <Line
-            type="monotone"
+            type="linear"
             dataKey="value"
             stroke={color}
             strokeWidth={2}
             dot={false}
             activeDot={{ r: 4, fill: color }}
+            connectNulls={false}
           />
         </LineChart>
       </ResponsiveContainer>

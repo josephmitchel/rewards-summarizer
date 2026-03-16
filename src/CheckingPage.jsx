@@ -1,7 +1,7 @@
 import { useState, useMemo } from 'react'
 import { formatMonth } from './utils/csvParser'
 import { checkingTransactions as allCheckingTransactions } from './data/amex-checking/data'
-import checkingImg from './assets/checking.avif'
+
 import SpendingChart from './SpendingChart'
 
 export default function CheckingPage() {
@@ -63,12 +63,6 @@ export default function CheckingPage() {
 
   return (
     <div className="card-page checking-page">
-      <div className="checking-hero">
-        <div className="card-hero-inner">
-          <img src={checkingImg} alt="Amex Rewards Checking" className="card-image" />
-        </div>
-      </div>
-
       <div className="page-body">
         <div className="summary-row">
           <div className="summary-card summary-card-accent checking-accent-card">

@@ -158,6 +158,8 @@ export default function CombinedPage({ goldTransactions, blueTransactions, savin
           selectedPeriod={selectedPeriod}
           valueLabel="Total Income"
           color="#a855f7"
+          yMax={{ year: 1500, month: 150 }}
+          dailyYear
         />
 
         <div className="filter-section">
