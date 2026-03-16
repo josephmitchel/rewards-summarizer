@@ -287,6 +287,26 @@
   color: #30a46c;
 }
 
+/* ─── Chart ──────────────────────────────────────────── */
+
+.chart-container {
+  background: #fff;
+  border-radius: 14px;
+  border: 1px solid #e5e5ea;
+  box-shadow: 0 1px 4px rgba(0,0,0,0.06);
+  padding: 16px 20px 12px;
+  margin-bottom: 24px;
+}
+
+.chart-title {
+  font-size: 12px;
+  font-weight: 600;
+  color: #8e8e93;
+  text-transform: uppercase;
+  letter-spacing: 0.06em;
+  margin-bottom: 12px;
+}
+
 /* ─── Filter Section ─────────────────────────────────── */
 
 .filter-section {

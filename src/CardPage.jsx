@@ -2,6 +2,7 @@ import { useState, useMemo } from 'react'
 import { parseAmount, formatMonth, formatMultiplier } from './utils/csvParser'
 import goldImg from './assets/gold.avif'
 import blueImg from './assets/blue.avif'
+import SpendingChart from './SpendingChart'
 
 const CARD_IMAGES = { gold: goldImg, blue: blueImg }
 
@@ -15,24 +16,33 @@ const STATUS_CONFIG = {
 }
 
 export default function CardPage({ cardName, transactions, rewardKey, rewardLabel, isPoints, theme }) {
-  const [selectedPeriod, setSelectedPeriod] = useState('all')
+  const [selectedPeriod, setSelectedPeriod] = useState(() => {
+    const yrs = [...new Set(transactions.map(t => t.Date.substring(0, 4)))].sort()
+    return yrs.at(-1) || String(new Date().getFullYear())
+  })
 
   const months = useMemo(() => {
-    const monthSet = new Set(transactions.map(t => t.Date.substring(0, 7)))
-    return Array.from(monthSet).sort()
+    const s = new Set(transactions.map(t => t.Date.substring(0, 7)))
+    return Array.from(s).sort()
   }, [transactions])
 
-  const periods = useMemo(() => ['all', ...months], [months])
+  const years = useMemo(() => {
+    const s = new Set(transactions.map(t => t.Date.substring(0, 4)))
+    return Array.from(s).sort()
+  }, [transactions])
+
+  // periods: ['2025', '2025-01', '2025-02', ..., '2026', '2026-01', ...]
+  const periods = useMemo(
+    () => years.flatMap(y => [y, ...months.filter(m => m.startsWith(y))]),
+    [years, months]
+  )
 
   const currentIndex = periods.indexOf(selectedPeriod)
-
   const goBack    = () => { if (currentIndex > 0)                    setSelectedPeriod(periods[currentIndex - 1]) }
   const goForward = () => { if (currentIndex < periods.length - 1)   setSelectedPeriod(periods[currentIndex + 1]) }
 
   const filtered = useMemo(() => {
-    const base = selectedPeriod === 'all'
-      ? transactions
-      : transactions.filter(t => t.Date.startsWith(selectedPeriod))
+    const base = transactions.filter(t => t.Date.startsWith(selectedPeriod))
     return [...base].sort((a, b) => b.Date.localeCompare(a.Date))
   }, [transactions, selectedPeriod])
 
@@ -49,7 +59,8 @@ export default function CardPage({ cardName, transactions, rewardKey, rewardLabe
     const rewardRate = totalSpent > 0 ? (rewardDollars / totalSpent) * 100 : 0
 
     let numDays = 1
-    if (selectedPeriod === 'all') {
+    if (selectedPeriod.length === 4) {
+      // Year selected — use actual date range of filtered transactions
       if (filtered.length > 1) {
         const dates = filtered.map(t => t.Date).sort()
         const start = new Date(dates[0] + 'T00:00:00')
@@ -74,10 +85,7 @@ export default function CardPage({ cardName, transactions, rewardKey, rewardLabe
     return `${sign}$${abs.toFixed(2)}`
   }
 
-  const periodLabel = (period) => {
-    if (period === 'all') return 'All months'
-    return formatMonth(period)
-  }
+  const periodLabel = (period) => period.length === 4 ? period : formatMonth(period)
 
   const amountDisplay = (raw) => {
     const val = parseAmount(raw)
@@ -129,6 +137,14 @@ export default function CardPage({ cardName, transactions, rewardKey, rewardLabe
             <div className="summary-sub">{periodLabel(selectedPeriod)}</div>
           </div>
         </div>
+
+        <SpendingChart
+          transactions={transactions}
+          selectedPeriod={selectedPeriod}
+          valueKey="Amount"
+          valueLabel="Spending"
+          color={theme === 'gold' ? '#b8892a' : '#006fcf'}
+        />
 
         <div className="filter-section">
           <div className="filter-controls">

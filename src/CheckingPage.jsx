@@ -2,9 +2,13 @@ import { useState, useMemo } from 'react'
 import { formatMonth } from './utils/csvParser'
 import { checkingTransactions as allCheckingTransactions } from './data/amex-checking/data'
 import checkingImg from './assets/checking.avif'
+import SpendingChart from './SpendingChart'
 
 export default function CheckingPage() {
-  const [selectedPeriod, setSelectedPeriod] = useState('all')
+  const [selectedPeriod, setSelectedPeriod] = useState(() => {
+    const yrs = [...new Set(allCheckingTransactions.map(t => t.Date.substring(0, 4)))].sort()
+    return yrs.at(-1) || String(new Date().getFullYear())
+  })
 
   const transactions = allCheckingTransactions
 
@@ -13,16 +17,22 @@ export default function CheckingPage() {
     return Array.from(s).sort()
   }, [transactions])
 
-  const periods = useMemo(() => ['all', ...months], [months])
+  const years = useMemo(() => {
+    const s = new Set(transactions.map(t => t.Date.substring(0, 4)))
+    return Array.from(s).sort()
+  }, [transactions])
+
+  const periods = useMemo(
+    () => years.flatMap(y => [y, ...months.filter(m => m.startsWith(y))]),
+    [years, months]
+  )
 
   const currentIndex = periods.indexOf(selectedPeriod)
   const goBack    = () => { if (currentIndex > 0)                  setSelectedPeriod(periods[currentIndex - 1]) }
   const goForward = () => { if (currentIndex < periods.length - 1) setSelectedPeriod(periods[currentIndex + 1]) }
 
   const filtered = useMemo(() => {
-    const base = selectedPeriod === 'all'
-      ? transactions
-      : transactions.filter(t => t.Date.startsWith(selectedPeriod))
+    const base = transactions.filter(t => t.Date.startsWith(selectedPeriod))
     return [...base].sort((a, b) => b.Date.localeCompare(a.Date))
   }, [transactions, selectedPeriod])
 
@@ -30,7 +40,7 @@ export default function CheckingPage() {
     const totalInterest = filtered.reduce((s, t) => s + t.Amount, 0)
 
     let numDays = 1
-    if (selectedPeriod === 'all') {
+    if (selectedPeriod.length === 4) {
       if (filtered.length > 1) {
         const dates = filtered.map(t => t.Date).sort()
         const start = new Date(dates[0] + 'T00:00:00')
@@ -49,10 +59,7 @@ export default function CheckingPage() {
     }
   }, [filtered, selectedPeriod])
 
-  const periodLabel = (period) => {
-    if (period === 'all') return 'All months'
-    return formatMonth(period)
-  }
+  const periodLabel = (period) => period.length === 4 ? period : formatMonth(period)
 
   return (
     <div className="card-page checking-page">
@@ -80,6 +87,14 @@ export default function CheckingPage() {
             <div className="summary-sub">{periodLabel(selectedPeriod)}</div>
           </div>
         </div>
+
+        <SpendingChart
+          transactions={transactions}
+          selectedPeriod={selectedPeriod}
+          valueKey="Amount"
+          valueLabel="Interest Earned"
+          color="#f97316"
+        />
 
         <div className="filter-section">
           <div className="filter-controls">

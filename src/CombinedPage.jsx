@@ -1,5 +1,6 @@
 import { useState, useMemo } from 'react'
 import { parseAmount, formatMonth, formatMultiplier } from './utils/csvParser'
+import SpendingChart from './SpendingChart'
 
 const POINTS_TO_DOLLARS = 0.006
 
@@ -18,7 +19,11 @@ const SOURCE_CONFIG = {
 }
 
 export default function CombinedPage({ goldTransactions, blueTransactions, savingsTransactions, checkingTransactions }) {
-  const [selectedPeriod, setSelectedPeriod] = useState('all')
+  const [selectedPeriod, setSelectedPeriod] = useState(() => {
+    const allDates = [...goldTransactions, ...blueTransactions, ...savingsTransactions, ...checkingTransactions].map(t => t.Date)
+    const yrs = [...new Set(allDates.map(d => d.substring(0, 4)))].sort()
+    return yrs.at(-1) || String(new Date().getFullYear())
+  })
 
   const allRows = useMemo(() => {
     const gold = goldTransactions.map(t => ({
@@ -53,20 +58,26 @@ export default function CombinedPage({ goldTransactions, blueTransactions, savin
   }, [goldTransactions, blueTransactions, savingsTransactions, checkingTransactions])
 
   const months = useMemo(() => {
-    const monthSet = new Set(allRows.map(t => t.Date.substring(0, 7)))
-    return Array.from(monthSet).sort()
+    const s = new Set(allRows.map(t => t.Date.substring(0, 7)))
+    return Array.from(s).sort()
   }, [allRows])
 
-  const periods = useMemo(() => ['all', ...months], [months])
+  const years = useMemo(() => {
+    const s = new Set(allRows.map(t => t.Date.substring(0, 4)))
+    return Array.from(s).sort()
+  }, [allRows])
+
+  const periods = useMemo(
+    () => years.flatMap(y => [y, ...months.filter(m => m.startsWith(y))]),
+    [years, months]
+  )
 
   const currentIndex = periods.indexOf(selectedPeriod)
   const goBack    = () => { if (currentIndex > 0)                  setSelectedPeriod(periods[currentIndex - 1]) }
   const goForward = () => { if (currentIndex < periods.length - 1) setSelectedPeriod(periods[currentIndex + 1]) }
 
   const filtered = useMemo(() => {
-    const base = selectedPeriod === 'all'
-      ? allRows
-      : allRows.filter(t => t.Date.startsWith(selectedPeriod))
+    const base = allRows.filter(t => t.Date.startsWith(selectedPeriod))
     return [...base].sort((a, b) => b.Date.localeCompare(a.Date))
   }, [allRows, selectedPeriod])
 
@@ -97,10 +108,7 @@ export default function CombinedPage({ goldTransactions, blueTransactions, savin
     }
   }, [filtered])
 
-  const periodLabel = (period) => {
-    if (period === 'all') return 'All months'
-    return formatMonth(period)
-  }
+  const periodLabel = (period) => period.length === 4 ? period : formatMonth(period)
 
   const amountDisplay = (raw) => {
     const val = parseAmount(raw)
@@ -144,6 +152,13 @@ export default function CombinedPage({ goldTransactions, blueTransactions, savin
             <div className="summary-sub">{periodLabel(selectedPeriod)}</div>
           </div>
         </div>
+
+        <SpendingChart
+          transactions={allRows}
+          selectedPeriod={selectedPeriod}
+          valueLabel="Total Income"
+          color="#a855f7"
+        />
 
         <div className="filter-section">
           <div className="filter-controls">
