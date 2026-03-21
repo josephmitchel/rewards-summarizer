@@ -1,11 +1,13 @@
 import mongoose from 'mongoose';
 
 const transactionSchema = new mongoose.Schema({
-  date: Date,
-  description: String,
-  amount: Number,
-  category: String,
-  card: String,       // e.g. 'amex-gold', 'amex-blue'
+  Date: Date,
+  Card: Number,
+  Status: String,
+  Description: String,
+  Multiplier: String,
+  Amount: String,
+  Cash: String,
 });
 
 export default mongoose.model('transactions', transactionSchema);

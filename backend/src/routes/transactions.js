@@ -3,18 +3,19 @@ import Transaction from '../models/Transaction.js';
 
 const router = Router();
 
-// GET /api/transactions?card=amex-gold&month=2026-03
 router.get('/', async (req, res) => {
   console.log('GET /api/transactions', req.query);
-  const { card, month } = req.query;
+  const { Date: date } = req.query;
+  console.log(date);
   const filter = {};
-  if (card) filter.card = card;
-  if (month) {
-    const start = new Date(`${month}-01`);
-    const end = new Date(start);
-    end.setMonth(end.getMonth() + 1);
-    filter.date = { $gte: start, $lt: end };
+
+  if (date) {
+    const start = new Date(date);
+    const end = new Date(date);
+    end.setDate(end.getDate() + 1);
+    filter.Date = { $gte: start, $lt: end };
   }
+
   const transactions = await Transaction.find(filter).sort({ Date: -1 });
   res.json(transactions);
 });
