@@ -1,16 +1,15 @@
 import express from 'express';
 import mongoose from 'mongoose';
 import cors from 'cors';
-import dotenv from 'dotenv';
-import transactionsRouter from './routes/transactions.js';
-
-dotenv.config();
+import bodyParser from 'body-parser';
+import router from './routes/routes.js';
 
 const app = express();
-app.use(cors({ origin: 'http://localhost:5173' })); // your Vite dev server
+app.use(cors({ origin: 'http://localhost:5173' }));
 app.use(express.json());
+app.use(bodyParser.urlencoded({ extended: false }));
 
-app.use('/api/transactions', transactionsRouter);
+app.use('/api', router);
 
 mongoose.connect(process.env.MONGO_URI)
   .then(() => {
