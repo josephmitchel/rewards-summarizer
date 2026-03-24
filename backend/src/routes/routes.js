@@ -5,6 +5,7 @@ import { Router } from 'express';
 import Transaction from '../models/Transaction.js';
 import plaidPkg from 'plaid';
 import moment from 'moment';
+import util from 'util';
 const { Configuration, PlaidApi, PlaidEnvironments, Products } = plaidPkg;
 
 const PLAID_ENV = process.env.PLAID_ENV || 'sandbox';
@@ -26,24 +27,33 @@ const configuration = new Configuration({
 
 const client = new PlaidApi(configuration);
 
+let ACCESS_TOKEN = null;
+let PUBLIC_TOKEN = null;
+let ITEM_ID = null;
+
+const prettyPrintResponse = (response) => {
+  console.log(util.inspect(response.data, { colors: true, depth: 4 }));
+};
+
+
 const router = Router();
 
-router.get('/transactions', async (req, res) => {
-  console.log('GET /api/transactions', req.query);
-  const { Date: date } = req.query;
-  console.log(date);
-  const filter = {};
+// router.get('/transactions', async (req, res) => {
+//   console.log('GET /api/transactions', req.query);
+//   const { Date: date } = req.query;
+//   console.log(date);
+//   const filter = {};
 
-  if (date) {
-    const start = new Date(date);
-    const end = new Date(date);
-    end.setDate(end.getDate() + 1);
-    filter.Date = { $gte: start, $lt: end };
-  }
+//   if (date) {
+//     const start = new Date(date);
+//     const end = new Date(date);
+//     end.setDate(end.getDate() + 1);
+//     filter.Date = { $gte: start, $lt: end };
+//   }
 
-  const transactions = await Transaction.find(filter).sort({ Date: -1 });
-  res.json(transactions);
-});
+//   const transactions = await Transaction.find(filter).sort({ Date: -1 });
+//   res.json(transactions);
+// });
 
 router.post('/create_link_token', function (req, res, next) {
   Promise.resolve()
@@ -73,6 +83,7 @@ router.post('/create_link_token', function (req, res, next) {
 });
 
 router.post('/set_access_token', function (request, response, next) {
+  console.log('POST /api/set_access_token', request.body);
   PUBLIC_TOKEN = request.body.public_token;
   Promise.resolve()
     .then(async function () {
@@ -88,6 +99,57 @@ router.post('/set_access_token', function (request, response, next) {
         item_id: ITEM_ID,
         error: null,
       });
+    })
+    .catch(next);
+});
+
+// Retrieve Transactions for an Item
+// https://plaid.com/docs/#transactions
+router.get('/transactions', function (request, response, next) {
+  Promise.resolve()
+    .then(async function () {
+      // Set cursor to empty to receive all historical updates
+      let cursor = null;
+
+      // New transaction updates since "cursor"
+      let added = [];
+      let modified = [];
+      // Removed transaction ids
+      let removed = [];
+      let hasMore = true;
+      // Iterate through each page of new transaction updates for item
+      while (hasMore) {
+        const request = {
+          access_token: ACCESS_TOKEN,
+          cursor: cursor,
+        };
+        const response = await client.transactionsSync(request)
+        const data = response.data;
+
+        // If no transactions are available yet, wait and poll the endpoint.
+        // Normally, we would listen for a webhook, but the Quickstart doesn't
+        // support webhooks. For a webhook example, see
+        // https://github.com/plaid/tutorial-resources or
+        // https://github.com/plaid/pattern
+        cursor = data.next_cursor;
+        if (cursor === "") {
+          await sleep(2000);
+          continue;
+        }
+
+        // Add this page of results
+        added = added.concat(data.added);
+        modified = modified.concat(data.modified);
+        removed = removed.concat(data.removed);
+        hasMore = data.has_more;
+
+        prettyPrintResponse(response);
+      }
+
+      const compareTxnsByDateAscending = (a, b) => (a.date > b.date) - (a.date < b.date);
+      // Return the 8 most recent transactions
+      const recently_added = [...added].sort(compareTxnsByDateAscending).slice(-8);
+      response.json({ latest_transactions: recently_added });
     })
     .catch(next);
 });

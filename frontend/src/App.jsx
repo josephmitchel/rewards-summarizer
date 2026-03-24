@@ -70,12 +70,27 @@ export default function App() {
     window.history.pushState("", "", "/");
   }, []);
 
+  const getTransactions = useCallback(async () => {
+    const response = await fetch("/api/transactions");
+    if (!response.ok) {
+      console.error("Failed to fetch transactions");
+      return;
+    }
+    const data = await response.json();
+    if (data.error != null) {
+      console.error("Error fetching transactions:", data.error);
+      return;
+    }
+    console.log("Fetched transactions:", data);
+  }, []);
+
   const { open, ready } = usePlaidLink({ token: linkToken, onSuccess });
 
   return (
     <div className="app">
       <button onClick={generateLinkToken}>Get Link Token</button>
       <button onClick={() => open()} disabled={!ready || !linkToken}>Connect Bank Account</button>
+      <button onClick={getTransactions}>Get Transactions</button>
       <header className="app-header">
         <nav className="card-nav">
           {[
