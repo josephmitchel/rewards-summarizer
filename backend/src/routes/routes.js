@@ -2,7 +2,7 @@ import dotenv from 'dotenv';
 dotenv.config();
 
 import { Router } from 'express';
-import Transaction from '../models/Transaction.js';
+import PlaidTransaction from '../models/PlaidTransaction.js';
 import plaidPkg from 'plaid';
 import moment from 'moment';
 import util from 'util';
@@ -29,31 +29,17 @@ const client = new PlaidApi(configuration);
 
 let ACCESS_TOKEN = null;
 let PUBLIC_TOKEN = null;
+let REQUEST_TOKEN = null;
 let ITEM_ID = null;
 
 const prettyPrintResponse = (response) => {
   console.log(util.inspect(response.data, { colors: true, depth: 4 }));
 };
 
+const sleep = (ms) => new Promise(resolve => setTimeout(resolve, ms));
+
 
 const router = Router();
-
-// router.get('/transactions', async (req, res) => {
-//   console.log('GET /api/transactions', req.query);
-//   const { Date: date } = req.query;
-//   console.log(date);
-//   const filter = {};
-
-//   if (date) {
-//     const start = new Date(date);
-//     const end = new Date(date);
-//     end.setDate(end.getDate() + 1);
-//     filter.Date = { $gte: start, $lt: end };
-//   }
-
-//   const transactions = await Transaction.find(filter).sort({ Date: -1 });
-//   res.json(transactions);
-// });
 
 router.post('/create_link_token', function (req, res, next) {
   Promise.resolve()
@@ -93,10 +79,11 @@ router.post('/set_access_token', function (request, response, next) {
       prettyPrintResponse(tokenResponse);
       ACCESS_TOKEN = tokenResponse.data.access_token;
       ITEM_ID = tokenResponse.data.item_id;
+      REQUEST_TOKEN = tokenResponse.data.request_id;
       response.json({
-        // the 'access_token' is a private token, DO NOT pass this token to the frontend in your production environment
         access_token: ACCESS_TOKEN,
         item_id: ITEM_ID,
+        request_id: REQUEST_TOKEN,
         error: null,
       });
     })
@@ -143,13 +130,27 @@ router.get('/transactions', function (request, response, next) {
         removed = removed.concat(data.removed);
         hasMore = data.has_more;
 
-        prettyPrintResponse(response);
+        // prettyPrintResponse(response);
       }
 
+      await Promise.all(added.map(txn => {
+        console.log('transaction', txn.transaction_id);
+        console.log('counterparty', txn.counterparties);
+        console.log('');
+        const plainTxn = JSON.parse(JSON.stringify(txn));
+        // return PlaidTransaction.updateOne(
+        //   { transaction_id: plainTxn.transaction_id },
+        //   { $set: plainTxn },
+        //   { upsert: true }
+        // );
+      }));
+
       const compareTxnsByDateAscending = (a, b) => (a.date > b.date) - (a.date < b.date);
-      // Return the 8 most recent transactions
-      const recently_added = [...added].sort(compareTxnsByDateAscending).slice(-8);
-      response.json({ latest_transactions: recently_added });
+      const recently_added = [...added].sort(compareTxnsByDateAscending);
+      response.json({
+        latest_transactions: recently_added,
+        cursor: cursor,
+      });
     })
     .catch(next);
 });
