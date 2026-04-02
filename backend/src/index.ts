@@ -11,7 +11,7 @@ app.use(bodyParser.urlencoded({ extended: false }));
 
 app.use('/api', router);
 
-mongoose.connect(process.env.MONGO_URI)
+mongoose.connect(process.env.MONGO_URI!)
   .then(() => {
     console.log('Connected to MongoDB Atlas');
     app.listen(3001, () => console.log('Server running on port 3001'));
