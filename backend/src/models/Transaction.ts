@@ -62,6 +62,11 @@ export interface ITransaction extends Document {
   transactionType?: string;
   unofficialCurrencyCode?: string;
   website?: string;
+
+  // Fields that a user is allowed to override for categorization purposes
+  overrides?: {
+    category?: string;
+  }
 }
 
 const counterpartySchema = new mongoose.Schema({

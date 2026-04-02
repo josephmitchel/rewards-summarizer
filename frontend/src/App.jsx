@@ -8,6 +8,7 @@ export default function App() {
   const [token, setToken] = useState(localStorage.getItem('token'));
   const [screen, setScreen] = useState('login');
   const [linkToken, setLinkToken] = useState(null);
+  const [accounts, setAccounts] = useState([]);
   const pendingOpen = useRef(false);
 
   const onSuccess = useCallback(async (public_token) => {
@@ -41,6 +42,14 @@ export default function App() {
     }
   }, [ready, open]);
 
+  useEffect(() => {
+    if (!token) return;
+    fetch("/api/accounts", { headers: { "Authorization": `Bearer ${token}` } })
+      .then(res => res.json())
+      .then(data => setAccounts(data.accounts))
+      .catch(() => console.error("Failed to fetch accounts"));
+  }, [token]);
+
   const linkBankAccount = async () => {
     const response = await fetch("/api/link/token/create", {
       method: "POST",
@@ -53,31 +62,38 @@ export default function App() {
     setLinkToken(data.link_token);
   };
 
-  const getTransactions = useCallback(async () => {
-    const response = await fetch("/api/transactions", {
+  const syncTransactions = useCallback(async () => {
+    const response = await fetch("/api/transactions/sync", {
+      method: "POST",
       headers: { "Authorization": `Bearer ${token}` },
     });
-    if (!response.ok) { console.error("Failed to fetch transactions"); return; }
+    if (!response.ok) { console.error("Failed to sync transactions"); return; }
     const data = await response.json();
-    if (data.error != null) { console.error("Error fetching transactions:", data.error); return; }
-    console.log("Fetched transactions:", data);
+    console.log(`Synced ${data.synced} transactions`);
   }, [token]);
-
-  if (!token) {
-    if (screen === 'register') return <Register onRegister={() => setScreen('login')} />;
-    return <Login onLogin={setToken} onShowRegister={() => setScreen('register')} />;
-  }
 
   const logout = () => {
     localStorage.removeItem('token');
     setToken(null);
   };
 
+  if (!token) {
+    if (screen === 'register') return <Register onRegister={() => setScreen('login')} />;
+    return <Login onLogin={setToken} onShowRegister={() => setScreen('register')} />;
+  }
+
   return (
     <div className="app">
       <button onClick={linkBankAccount}>Link Bank Account</button>
-      <button onClick={getTransactions}>Get Transactions</button>
+      <button onClick={syncTransactions}>Get Transactions</button>
       <button onClick={logout}>Log Out</button>
+      <div>
+        {accounts.map(account => (
+          <button key={account.accountId}>
+            {account.name} ({account.subtype})
+          </button>
+        ))}
+      </div>
     </div>
   )
 }
