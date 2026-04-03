@@ -77,10 +77,12 @@ router.post('/item/public_token/exchange', requireAuth, async (req: Request, res
 
     const { accessToken, itemId, requestId } = await exchangePublicToken(public_token);
     const { institutionId, institutionName } = await getItemInstitution(accessToken);
+
     const accounts = await getAccounts(accessToken);
     const transactions = await syncTransactions(accessToken);
 
-    const item = await upsertItem(userId, itemId, accessToken, institutionId, institutionName);
+    const existingItem = institutionId ? await Item.findOne({ userId, institutionId }) : null;
+    const item = existingItem ? existingItem : await upsertItem(userId, itemId, accessToken, institutionId, institutionName);
     await upsertAccounts(userId, itemId, accounts);
     await upsertTransactions(userId, itemId, transactions);
 
@@ -107,6 +109,7 @@ router.post('/transactions/sync', requireAuth, async (req: Request, res: Respons
       if (!item.accessToken) continue;
       const accessToken = decrypt(item.accessToken);
       const transactions = await syncTransactions(accessToken);
+      console.log('transactions', transactions);
       await upsertTransactions(userId, item.itemId, transactions);
       total += transactions.length;
     }
@@ -123,6 +126,33 @@ router.get('/accounts', requireAuth, async (req: Request, res: Response, next: N
   try {
     const accounts = await Account.find({ userId: req.user!.userId });
     res.json({ accounts });
+  } catch (err) {
+    next(err);
+  }
+});
+
+// Retrieve a single account by accountId
+router.get('/accounts/:accountId', requireAuth, async (req: Request, res: Response, next: NextFunction) => {
+  try {
+    const account = await Account.findOne({ userId: req.user!.userId, accountId: req.params.accountId });
+    if (!account) {
+      res.status(404).json({ error: 'Account not found' });
+      return;
+    }
+    res.json({ account });
+  } catch (err) {
+    next(err);
+  }
+});
+
+// Retrieve all transactions for a specific account
+router.get('/accounts/:accountId/transactions', requireAuth, async (req: Request, res: Response, next: NextFunction) => {
+  try {
+    const transactions = await Transaction.find({
+      userId: req.user!.userId,
+      accountId: req.params.accountId,
+    }).sort({ date: -1 });
+    res.json({ transactions });
   } catch (err) {
     next(err);
   }

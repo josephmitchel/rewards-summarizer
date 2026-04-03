@@ -2,6 +2,7 @@ import { useState, useCallback, useEffect, useRef } from 'react'
 import { usePlaidLink } from 'react-plaid-link'
 import Login from './Login'
 import Register from './Register'
+import AccountPage from './AccountPage'
 import './App.css'
 
 export default function App() {
@@ -9,8 +10,10 @@ export default function App() {
   const [screen, setScreen] = useState('login');
   const [linkToken, setLinkToken] = useState(null);
   const [accounts, setAccounts] = useState([]);
+  const [selectedAccountId, setSelectedAccountId] = useState(null);
   const pendingOpen = useRef(false);
 
+  // Exchange the public token for an access token and store it
   const onSuccess = useCallback(async (public_token) => {
     const response = await fetch("/api/item/public_token/exchange", {
       method: "POST",
@@ -20,21 +23,19 @@ export default function App() {
       },
       body: `public_token=${public_token}`,
     });
-    if (!response.ok) {
-      console.error("Failed to exchange public token for access token");
-      return;
-    }
     const data = await response.json();
-    if (data.error != null) {
-      console.error("Error exchanging public token:", data.error);
+    if (!response.ok) {
+      console.error("Failed to link account:", data.error);
       return;
     }
     console.log("Access token saved:", data);
     window.history.pushState("", "", "/");
   }, [token]);
 
+  // Plaid API
   const { open, ready } = usePlaidLink({ token: linkToken, onSuccess });
 
+  // Automatically open Plaid Link when the link token is ready
   useEffect(() => {
     if (ready && pendingOpen.current) {
       pendingOpen.current = false;
@@ -42,7 +43,10 @@ export default function App() {
     }
   }, [ready, open]);
 
+
   useEffect(() => {
+
+    // Fetch accounts whenever the token changes (i.e. on login)
     if (!token) return;
     fetch("/api/accounts", { headers: { "Authorization": `Bearer ${token}` } })
       .then(res => res.json())
@@ -50,6 +54,7 @@ export default function App() {
       .catch(() => console.error("Failed to fetch accounts"));
   }, [token]);
 
+  // Create a link token and open Plaid Link when the user clicks "Link Bank Account"
   const linkBankAccount = async () => {
     const response = await fetch("/api/link/token/create", {
       method: "POST",
@@ -62,6 +67,7 @@ export default function App() {
     setLinkToken(data.link_token);
   };
 
+  // Sync transactions from a linked bank account
   const syncTransactions = useCallback(async () => {
     const response = await fetch("/api/transactions/sync", {
       method: "POST",
@@ -85,15 +91,22 @@ export default function App() {
   return (
     <div className="app">
       <button onClick={linkBankAccount}>Link Bank Account</button>
+
       <button onClick={syncTransactions}>Get Transactions</button>
       <button onClick={logout}>Log Out</button>
       <div>
         {accounts.map(account => (
-          <button key={account.accountId}>
+          <button
+            key={account.accountId}
+            onClick={() => setSelectedAccountId(
+              prev => prev === account.accountId ? null : account.accountId
+            )}
+          >
             {account.name} ({account.subtype})
           </button>
         ))}
       </div>
+      {selectedAccountId && <AccountPage accountId={selectedAccountId} />}
     </div>
   )
 }

@@ -20,7 +20,7 @@ export interface IAccount extends Document {
 
 const itemSchema = new mongoose.Schema<IAccount>({
   userId: { type: mongoose.Schema.Types.ObjectId, ref: 'User', required: true },
-  itemId: { type: String, unique: true },
+  itemId: { type: String },
   accountId: { type: String, unique: true },
   balances: {
     available: { type: Number, default: null },
