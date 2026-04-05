@@ -6,7 +6,9 @@ import {
   CountryCode,
   LinkTokenCreateRequest,
   AccountBase,
+  Item,
   Transaction as PlaidTransaction,
+  ItemWithConsentFields,
 } from 'plaid';
 import moment from 'moment';
 
@@ -77,12 +79,9 @@ export async function exchangePublicToken(publicToken: string): Promise<{ access
 
 // Retrieve institution info for an item
 // https://plaid.com/docs/api/items/#itemget
-export async function getItemInstitution(accessToken: string): Promise<{ institutionId: string | null | undefined; institutionName: string | null | undefined }> {
+export async function getItem(accessToken: string): Promise<ItemWithConsentFields> {
   const response = await getClient().itemGet({ access_token: accessToken });
-  return {
-    institutionId: response.data.item.institution_id,
-    institutionName: response.data.item.institution_name,
-  };
+  return response.data.item;
 }
 
 // Retrieve all accounts for an item
@@ -94,9 +93,9 @@ export async function getAccounts(accessToken: string): Promise<AccountBase[]> {
 
 // Fetch all transactions for an item using the sync endpoint
 // https://plaid.com/docs/api/products/transactions/#transactionssync
-export async function syncTransactions(accessToken: string): Promise<PlaidTransaction[]> {
+export async function syncTransactions(accessToken: string, initialCursor?: string | null): Promise<{ transactions: PlaidTransaction[]; cursor: string | null }> {
   const client = getClient();
-  let cursor: string | null = null;
+  let cursor: string | null = initialCursor ?? null;
   let added: PlaidTransaction[] = [];
   let hasMore = true;
 
@@ -107,15 +106,15 @@ export async function syncTransactions(accessToken: string): Promise<PlaidTransa
     });
     const data = response.data;
 
-    cursor = data.next_cursor;
-    if (cursor === '') {
+    if (data.next_cursor === '') {
       await sleep(2000);
       continue;
     }
 
+    cursor = data.next_cursor;
     added = added.concat(data.added);
     hasMore = data.has_more;
   }
 
-  return added;
+  return { transactions: added, cursor };
 }

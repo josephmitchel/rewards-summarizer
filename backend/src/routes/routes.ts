@@ -4,8 +4,8 @@ import User from '../models/User.js';
 import Transaction from '../models/Transaction.js';
 import Item from '../models/Item.js';
 import Account from '../models/Account.js';
-import { createLinkToken, exchangePublicToken, getItemInstitution, getAccounts, syncTransactions } from '../services/plaid.service.js';
-import { upsertItem, upsertAccounts, upsertTransactions } from '../services/data.service.js';
+import { createLinkToken, exchangePublicToken, getItem, getAccounts, syncTransactions } from '../services/plaid.service.js';
+import { upsertItem, upsertAccount, upsertTransactions } from '../services/data.service.js';
 import { decrypt } from '../services/crypto.js';
 
 declare global {
@@ -73,20 +73,31 @@ router.post('/link/token/create', requireAuth, async (req: Request, res: Respons
 router.post('/item/public_token/exchange', requireAuth, async (req: Request, res: Response, next: NextFunction) => {
   try {
     const { public_token } = req.body as { public_token: string };
+    const { accessToken, itemId, requestId } = await exchangePublicToken(public_token);
+
+    const item = await getItem(accessToken);
+    const accounts = await getAccounts(accessToken);
+    const { transactions, cursor } = await syncTransactions(accessToken);
     const userId = req.user!.userId;
 
-    const { accessToken, itemId, requestId } = await exchangePublicToken(public_token);
-    const { institutionId, institutionName } = await getItemInstitution(accessToken);
+    // Add the item to database if it doesn't already exist
+    const institutionId = item.institution_id;
+    const existingItem = item.institution_id ? await Item.findOne({ userId, institutionId }) : null;
+    const resolvedItemId = existingItem ? existingItem.itemId : itemId;
+    if (!existingItem) {
+      await upsertItem(userId, accessToken, item);
+      await Item.updateOne({ itemId }, { cursor });
+    }
 
-    const accounts = await getAccounts(accessToken);
-    const transactions = await syncTransactions(accessToken);
+    for (const account of accounts) {
+      const existingAccount = await Account.findOne({ userId, itemId: resolvedItemId, name: account.name });
+      if (!existingAccount) {
+        await upsertAccount(userId, resolvedItemId, account);
+      }
+    }
 
-    const existingItem = institutionId ? await Item.findOne({ userId, institutionId }) : null;
-    const item = existingItem ? existingItem : await upsertItem(userId, itemId, accessToken, institutionId, institutionName);
-    await upsertAccounts(userId, itemId, accounts);
     await upsertTransactions(userId, itemId, transactions);
 
-    console.log(`item/public_token/exchange: item ${item!._id}, ${accounts.length} accounts, ${transactions.length} transactions`);
     res.json({ item_id: itemId, request_id: requestId, error: null });
   } catch (err) {
     console.error('item/public_token/exchange error:', err);
@@ -108,13 +119,12 @@ router.post('/transactions/sync', requireAuth, async (req: Request, res: Respons
     for (const item of items) {
       if (!item.accessToken) continue;
       const accessToken = decrypt(item.accessToken);
-      const transactions = await syncTransactions(accessToken);
-      console.log('transactions', transactions);
+      const { transactions, cursor } = await syncTransactions(accessToken, item.cursor);
       await upsertTransactions(userId, item.itemId, transactions);
+      await Item.updateOne({ _id: item._id }, { cursor });
       total += transactions.length;
     }
 
-    console.log(`transactions/sync: upserted ${total} transactions for user ${userId}`);
     res.json({ synced: total });
   } catch (err) {
     next(err);
