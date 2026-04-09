@@ -6,7 +6,6 @@ import {
   CountryCode,
   LinkTokenCreateRequest,
   AccountBase,
-  Item,
   Transaction as PlaidTransaction,
   ItemWithConsentFields,
 } from 'plaid';
@@ -89,6 +88,13 @@ export async function getItem(accessToken: string): Promise<ItemWithConsentField
 export async function getAccounts(accessToken: string): Promise<AccountBase[]> {
   const response = await getClient().accountsGet({ access_token: accessToken });
   return response.data.accounts;
+}
+
+// Remove an item from Plaid
+// https://plaid.com/docs/api/items/#itemremove
+export async function itemRemove(accessToken: string): Promise<string> {
+  const response = await getClient().itemRemove({ access_token: accessToken });
+  return response.data.request_id;
 }
 
 // Fetch all transactions for an item using the sync endpoint

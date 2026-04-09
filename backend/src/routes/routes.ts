@@ -4,7 +4,7 @@ import User from '../models/User.js';
 import Transaction from '../models/Transaction.js';
 import Item from '../models/Item.js';
 import Account from '../models/Account.js';
-import { createLinkToken, exchangePublicToken, getItem, getAccounts, syncTransactions } from '../services/plaid.service.js';
+import { createLinkToken, exchangePublicToken, getItem, getAccounts, syncTransactions, itemRemove } from '../services/plaid.service.js';
 import { upsertItem, upsertAccount, upsertTransactions } from '../services/data.service.js';
 import { decrypt } from '../services/crypto.js';
 
@@ -119,13 +119,46 @@ router.post('/transactions/sync', requireAuth, async (req: Request, res: Respons
     for (const item of items) {
       if (!item.accessToken) continue;
       const accessToken = decrypt(item.accessToken);
-      const { transactions, cursor } = await syncTransactions(accessToken, item.cursor);
-      await upsertTransactions(userId, item.itemId, transactions);
-      await Item.updateOne({ _id: item._id }, { cursor });
-      total += transactions.length;
+      try {
+        const { transactions/*, cursor*/ } = await syncTransactions(accessToken/*, item.cursor*/);
+        await upsertTransactions(userId, item.itemId, transactions);
+        // await Item.updateOne({ _id: item._id }, { cursor });
+        total += transactions.length;
+      } catch (err) {
+        console.error(`Skipping item ${item.itemId}:`, err);
+      }
     }
 
     res.json({ synced: total });
+  } catch (err) {
+    next(err);
+  }
+});
+
+// Retrieve all items for the logged-in user
+router.get('/items', requireAuth, async (req: Request, res: Response, next: NextFunction) => {
+  try {
+    const items = await Item.find({ userId: req.user!.userId }, { itemId: 1, institutionName: 1, institutionId: 1 });
+    res.json({ items });
+  } catch (err) {
+    next(err);
+  }
+});
+
+// Remove an item from Plaid using its stored access token
+router.delete('/items/:itemId', requireAuth, async (req: Request, res: Response, next: NextFunction) => {
+  try {
+    const item = await Item.findOne({ userId: req.user!.userId, itemId: req.params.itemId });
+    if (!item) {
+      res.status(404).json({ error: 'Item not found' });
+      return;
+    }
+    if (!item.accessToken) {
+      res.status(400).json({ error: 'No access token stored for this item' });
+      return;
+    }
+    const requestId = await itemRemove(decrypt(item.accessToken));
+    res.json({ removed: true, request_id: requestId });
   } catch (err) {
     next(err);
   }
@@ -161,8 +194,42 @@ router.get('/accounts/:accountId/transactions', requireAuth, async (req: Request
     const transactions = await Transaction.find({
       userId: req.user!.userId,
       accountId: req.params.accountId,
-    }).sort({ date: -1 });
+    }).sort({ 'plaidTransaction.date': -1 });
     res.json({ transactions });
+  } catch (err) {
+    next(err);
+  }
+});
+
+// Re-process all stored transactions through the categorization/rewards pipeline
+router.post('/transactions/reprocess', requireAuth, async (req: Request, res: Response, next: NextFunction) => {
+  try {
+    const userId = req.user!.userId;
+    const existing = await Transaction.find({ userId });
+    if (!existing.length) {
+      res.json({ reprocessed: 0 });
+      return;
+    }
+
+    // Snapshot the raw Plaid data and the itemId each transaction belongs to
+    const snapshot = existing.map(t => ({ itemId: t.itemId, plaidTransaction: t.plaidTransaction }));
+
+    await Transaction.deleteMany({ userId });
+
+    // Group by itemId and re-run through upsertTransactions
+    const byItem = new Map<string, typeof snapshot>();
+    for (const entry of snapshot) {
+      if (!byItem.has(entry.itemId)) byItem.set(entry.itemId, []);
+      byItem.get(entry.itemId)!.push(entry);
+    }
+
+    let total = 0;
+    for (const [itemId, entries] of byItem) {
+      await upsertTransactions(userId, itemId, entries.map(e => e.plaidTransaction));
+      total += entries.length;
+    }
+
+    res.json({ reprocessed: total });
   } catch (err) {
     next(err);
   }
@@ -171,7 +238,7 @@ router.get('/accounts/:accountId/transactions', requireAuth, async (req: Request
 // Retrieve all stored transactions for the logged-in user
 router.get('/transactions', requireAuth, async (req: Request, res: Response, next: NextFunction) => {
   try {
-    const transactions = await Transaction.find({ userId: req.user!.userId }).sort({ date: -1 });
+    const transactions = await Transaction.find({ userId: req.user!.userId }).sort({ 'plaidTransaction.date': -1 });
     res.json({ transactions });
   } catch (err) {
     next(err);

@@ -43,11 +43,11 @@ export default function AccountPage({ accountId }) {
           </thead>
           <tbody>
             {transactions.map(txn => (
-              <tr key={txn.transactionId}>
-                <td>{txn.date ? new Date(txn.date).toLocaleDateString() : '—'}</td>
-                <td>{txn.merchantName || txn.name}</td>
-                <td>{txn.amount}</td>
-                <td>{txn.personalFinanceCategory?.primary || txn.category || '—'}</td>
+              <tr key={txn.plaidTransaction.transaction_id}>
+                <td>{txn.plaidTransaction.date ? new Date(txn.plaidTransaction.date).toLocaleDateString() : '—'}</td>
+                <td>{txn.plaidTransaction.merchant_name || txn.plaidTransaction.name}</td>
+                <td>{txn.plaidTransaction.amount}</td>
+                <td>{txn.plaidTransaction.personal_finance_category?.detailed || txn.plaidTransaction.category || '—'}</td>
               </tr>
             ))}
           </tbody>

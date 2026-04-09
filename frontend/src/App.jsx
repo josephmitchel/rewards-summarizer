@@ -10,7 +10,9 @@ export default function App() {
   const [screen, setScreen] = useState('login');
   const [linkToken, setLinkToken] = useState(null);
   const [accounts, setAccounts] = useState([]);
+  const [items, setItems] = useState([]);
   const [selectedAccountId, setSelectedAccountId] = useState(null);
+  const [removeStatus, setRemoveStatus] = useState({}); // { [itemId]: { ok, requestId? } }
   const pendingOpen = useRef(false);
 
   // Exchange the public token for an access token and store it
@@ -43,15 +45,22 @@ export default function App() {
     }
   }, [ready, open]);
 
+  const logout = () => {
+    localStorage.removeItem('token');
+    setToken(null);
+  };
 
   useEffect(() => {
-
-    // Fetch accounts whenever the token changes (i.e. on login)
     if (!token) return;
-    fetch("/api/accounts", { headers: { "Authorization": `Bearer ${token}` } })
-      .then(res => res.json())
-      .then(data => setAccounts(data.accounts))
+    const headers = { "Authorization": `Bearer ${token}` };
+    fetch("/api/accounts", { headers })
+      .then(res => { if (res.status === 401) { logout(); return null; } return res.json(); })
+      .then(data => { if (data) setAccounts(data.accounts ?? []); })
       .catch(() => console.error("Failed to fetch accounts"));
+    fetch("/api/items", { headers })
+      .then(res => { if (res.status === 401) { logout(); return null; } return res.json(); })
+      .then(data => { if (data) setItems(data.items ?? []); })
+      .catch(() => console.error("Failed to fetch items"));
   }, [token]);
 
   // Create a link token and open Plaid Link when the user clicks "Link Bank Account"
@@ -67,6 +76,16 @@ export default function App() {
     setLinkToken(data.link_token);
   };
 
+  const reprocessTransactions = useCallback(async () => {
+    const response = await fetch("/api/transactions/reprocess", {
+      method: "POST",
+      headers: { "Authorization": `Bearer ${token}` },
+    });
+    if (!response.ok) { console.error("Failed to reprocess transactions"); return; }
+    const data = await response.json();
+    console.log(`Reprocessed ${data.reprocessed} transactions`);
+  }, [token]);
+
   // Sync transactions from a linked bank account
   const syncTransactions = useCallback(async () => {
     const response = await fetch("/api/transactions/sync", {
@@ -78,10 +97,18 @@ export default function App() {
     console.log(`Synced ${data.synced} transactions`);
   }, [token]);
 
-  const logout = () => {
-    localStorage.removeItem('token');
-    setToken(null);
-  };
+  const removeItem = useCallback(async (itemId) => {
+    const response = await fetch(`/api/items/${itemId}`, {
+      method: "DELETE",
+      headers: { "Authorization": `Bearer ${token}` },
+    });
+    const data = await response.json();
+    if (!response.ok) {
+      setRemoveStatus(prev => ({ ...prev, [itemId]: { ok: false } }));
+      return;
+    }
+    setRemoveStatus(prev => ({ ...prev, [itemId]: { ok: true, requestId: data.request_id } }));
+  }, [token]);
 
   if (!token) {
     if (screen === 'register') return <Register onRegister={() => setScreen('login')} />;
@@ -91,19 +118,31 @@ export default function App() {
   return (
     <div className="app">
       <button onClick={linkBankAccount}>Link Bank Account</button>
-
       <button onClick={syncTransactions}>Get Transactions</button>
+      <button onClick={reprocessTransactions}>Reprocess Transactions</button>
       <button onClick={logout}>Log Out</button>
       <div>
-        {accounts.map(account => (
-          <button
-            key={account.accountId}
-            onClick={() => setSelectedAccountId(
-              prev => prev === account.accountId ? null : account.accountId
+        {items.map(item => (
+          <div key={item.itemId}>
+            <strong>{item.institutionName || item.itemId}</strong>
+            <button onClick={() => removeItem(item.itemId)}>Remove from Plaid</button>
+            {removeStatus[item.itemId]?.ok && (
+              <span>Removed. request_id: {removeStatus[item.itemId].requestId}</span>
             )}
-          >
-            {account.name} ({account.subtype})
-          </button>
+            {removeStatus[item.itemId]?.ok === false && (
+              <span>Failed to remove item.</span>
+            )}
+            {accounts.filter(a => a.itemId === item.itemId).map(account => (
+              <button
+                key={account.accountId}
+                onClick={() => setSelectedAccountId(
+                  prev => prev === account.accountId ? null : account.accountId
+                )}
+              >
+                {account.name} ({account.subtype})
+              </button>
+            ))}
+          </div>
         ))}
       </div>
       {selectedAccountId && <AccountPage accountId={selectedAccountId} />}
