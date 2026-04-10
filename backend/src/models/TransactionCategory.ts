@@ -10,4 +10,4 @@ const transactionCategorySchema = new mongoose.Schema<ITransactionCategory>({
   userCategory: { type: String, required: true },
 });
 
-export default mongoose.model<ITransactionCategory>('TransactionCategory', transactionCategorySchema);
+export default mongoose.model<ITransactionCategory>('TransactionCategory', transactionCategorySchema, 'transactionCategories');

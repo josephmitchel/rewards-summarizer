@@ -4,6 +4,7 @@ import User from '../models/User.js';
 import Transaction from '../models/Transaction.js';
 import Item from '../models/Item.js';
 import Account from '../models/Account.js';
+import Card from '../models/Card.js';
 import { createLinkToken, exchangePublicToken, getItem, getAccounts, syncTransactions, itemRemove } from '../services/plaid.service.js';
 import { upsertItem, upsertAccount, upsertTransactions } from '../services/data.service.js';
 import { decrypt } from '../services/crypto.js';
@@ -120,9 +121,9 @@ router.post('/transactions/sync', requireAuth, async (req: Request, res: Respons
       if (!item.accessToken) continue;
       const accessToken = decrypt(item.accessToken);
       try {
-        const { transactions/*, cursor*/ } = await syncTransactions(accessToken/*, item.cursor*/);
+        const { transactions, cursor } = await syncTransactions(accessToken, item.cursor);
         await upsertTransactions(userId, item.itemId, transactions);
-        // await Item.updateOne({ _id: item._id }, { cursor });
+        await Item.updateOne({ _id: item._id }, { cursor });
         total += transactions.length;
       } catch (err) {
         console.error(`Skipping item ${item.itemId}:`, err);
@@ -169,6 +170,18 @@ router.get('/accounts', requireAuth, async (req: Request, res: Response, next: N
   try {
     const accounts = await Account.find({ userId: req.user!.userId });
     res.json({ accounts });
+  } catch (err) {
+    next(err);
+  }
+});
+
+// Retrieve the card associated with an account
+router.get('/accounts/:accountId/card', requireAuth, async (req: Request, res: Response, next: NextFunction) => {
+  try {
+    const account = await Account.findOne({ userId: req.user!.userId, accountId: req.params.accountId });
+    if (!account) { res.status(404).json({ error: 'Account not found' }); return; }
+    const card = await Card.findOne({ name: account.name, isActive: true });
+    res.json({ card });
   } catch (err) {
     next(err);
   }
@@ -230,6 +243,27 @@ router.post('/transactions/reprocess', requireAuth, async (req: Request, res: Re
     }
 
     res.json({ reprocessed: total });
+  } catch (err) {
+    next(err);
+  }
+});
+
+// Update a transaction's category and recalculate rewards
+router.patch('/transactions/:transactionId', requireAuth, async (req: Request, res: Response, next: NextFunction) => {
+  try {
+    const { category } = req.body as { category: string };
+    const txn = await Transaction.findOne({ userId: req.user!.userId, transactionId: req.params.transactionId });
+    if (!txn) { res.status(404).json({ error: 'Transaction not found' }); return; }
+
+    const { calculateRewards } = await import('../services/rewards.service.js');
+    const rewards = await calculateRewards(txn.accountId, category, txn.plaidTransaction.amount);
+
+    txn.category = category;
+    txn.cashback = rewards?.cashback ?? 0;
+    txn.points = rewards?.points ?? 0;
+    await txn.save();
+
+    res.json({ transaction: txn });
   } catch (err) {
     next(err);
   }

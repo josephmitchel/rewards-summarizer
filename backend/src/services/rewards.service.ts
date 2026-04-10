@@ -30,6 +30,21 @@ export async function resolveCategory(plaidDetailedCategory: string | null | und
   return catchAll?.userCategory ?? 'Other';
 }
 
+// Resolves a category for a specific account's card — falls back to "Other"
+// if the resolved category isn't a reward tier on that card.
+export async function resolveCardCategory(accountId: string, plaidDetailedCategory: string | null | undefined): Promise<string> {
+  const category = await resolveCategory(plaidDetailedCategory);
+
+  const account = await Account.findOne({ accountId });
+  if (!account) return category;
+
+  const card = await Card.findOne({ name: account.name, isActive: true });
+  if (!card) return category;
+
+  const isOnCard = card.rewards.some(r => r.category === category);
+  return isOnCard ? category : 'Other';
+}
+
 // Calculates cashback or points for a transaction.
 // Returns { cashback } for cashback cards and { points } for points cards.
 // Returns null if the account or card can't be found, or if the transaction

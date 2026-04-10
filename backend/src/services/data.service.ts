@@ -4,7 +4,7 @@ import Item from '../models/Item.js';
 import Account from '../models/Account.js';
 import Transaction from '../models/Transaction.js';
 import { encrypt } from './crypto.js';
-import { resolveCategory, calculateRewards } from './rewards.service.js';
+import { resolveCardCategory, calculateRewards } from './rewards.service.js';
 
 export async function upsertItem(
   userId: string,
@@ -61,7 +61,7 @@ export async function upsertAccount(userId: string, itemId: string, account: Acc
 
 export async function upsertTransactions(userId: string, itemId: string, transactions: PlaidTransaction[]) {
   return Promise.all(transactions.map(async txn => {
-    const category = await resolveCategory(txn.personal_finance_category?.detailed);
+    const category = await resolveCardCategory(txn.account_id, txn.personal_finance_category?.detailed);
     const rewards = await calculateRewards(txn.account_id, category, txn.amount);
 
     return Transaction.findOneAndUpdate(
