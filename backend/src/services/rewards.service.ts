@@ -7,7 +7,7 @@ import TransactionCategory from '../models/TransactionCategory.js';
 //   1. Exact match (e.g. "FOOD_AND_DRINK_GROCERIES")
 //   2. Most-specific wildcard prefix (e.g. "FOOD_AND_DRINK*")
 //   3. Catch-all "*"
-export async function resolveCategory(plaidDetailedCategory: string | null | undefined): Promise<string> {
+export async function resolveDebitCategory(plaidDetailedCategory: string | null | undefined): Promise<string> {
   if (!plaidDetailedCategory) return 'Other';
 
   const allMappings = await TransactionCategory.find({});
@@ -30,10 +30,19 @@ export async function resolveCategory(plaidDetailedCategory: string | null | und
   return catchAll?.userCategory ?? 'Other';
 }
 
-// Resolves a category for a specific account's card — falls back to "Other"
-// if the resolved category isn't a reward tier on that card.
-export async function resolveCardCategory(accountId: string, plaidDetailedCategory: string | null | undefined): Promise<string> {
-  const category = await resolveCategory(plaidDetailedCategory);
+// Resolves a category for a negative (credit) transaction.
+// Defaults to "Card Payment" — the user can override via the dropdown.
+export function resolveCreditCategory(): string {
+  return 'Card Payment';
+}
+
+// Resolves a category for a specific account's card, dispatching on the sign
+// of the amount: negative → resolveCreditCategory, positive → resolveDebitCategory
+// validated against the card's reward tiers.
+export async function resolveCardCategory(accountId: string, plaidDetailedCategory: string | null | undefined, amount: number): Promise<string> {
+  if (amount < 0) return resolveCreditCategory();
+
+  const category = await resolveDebitCategory(plaidDetailedCategory);
 
   const account = await Account.findOne({ accountId });
   if (!account) return category;

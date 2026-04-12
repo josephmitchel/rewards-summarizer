@@ -6,6 +6,7 @@ export default function AccountPage({ accountId }) {
   const [rewardType, setRewardType] = useState(null)
   const [baseRedemptionValue, setBaseRedemptionValue] = useState(null)
   const [categoryOptions, setCategoryOptions] = useState([])
+  const [creditCategories, setCreditCategories] = useState([])
   const [editingTxnId, setEditingTxnId] = useState(null)
   const token = localStorage.getItem('token')
 
@@ -28,6 +29,8 @@ export default function AccountPage({ accountId }) {
         setRewardType(data.card?.rewardType ?? null)
         setBaseRedemptionValue(data.card?.baseRedemptionValue ?? null)
         setCategoryOptions(data.card?.rewards?.map(r => r.category) ?? [])
+        const benefitNames = data.card?.benefits?.map(b => b.name) ?? []
+        setCreditCategories(['Card Payment', 'Refund', ...benefitNames])
       })
       .catch(() => console.error('Failed to fetch card'))
   }, [accountId, token])
@@ -45,6 +48,16 @@ export default function AccountPage({ accountId }) {
     setTransactions(prev => prev.map(t => t.transactionId === txn.transactionId ? data.transaction : t))
   }
 
+  const calculateTotalRewards = () => {
+    if (rewardType === 'cashback') {
+      return transactions.reduce((sum, txn) => sum + (txn.cashback ?? 0), 0).toFixed(2)
+    } else if (rewardType === 'points') {
+      const totalPoints = transactions.reduce((sum, txn) => sum + (txn.points ?? 0), 0)
+      return baseRedemptionValue ? (totalPoints * baseRedemptionValue).toFixed(2) : `${totalPoints} points`
+    }
+    return 'N/A'
+  }
+
   if (!account) return <p>Loading...</p>
 
   return (
@@ -55,20 +68,7 @@ export default function AccountPage({ accountId }) {
       {account.mask && <p>Account ending in {account.mask}</p>}
 
       <h3>Transactions</h3>
-      {rewardType === 'cashback' && (
-        <p>Total Cashback: ${transactions.reduce((sum, txn) => sum + (txn.cashback ?? 0), 0).toFixed(2)}</p>
-      )}
-      {rewardType === 'points' && (() => {
-        const totalPoints = transactions.reduce((sum, txn) => sum + (txn.points ?? 0), 0)
-        return (
-          <>
-            <p>Total Points: {totalPoints}</p>
-            {baseRedemptionValue && (
-              <p>Estimated Cashback: ${(totalPoints * baseRedemptionValue).toFixed(2)}</p>
-            )}
-          </>
-        )
-      })()}
+      <p>Total Rewards: ${calculateTotalRewards()}</p>
       {transactions.length === 0 ? (
         <p>No transactions found.</p>
       ) : (
@@ -89,8 +89,8 @@ export default function AccountPage({ accountId }) {
                 <td>{txn.plaidTransaction.date ? new Date(txn.plaidTransaction.date).toLocaleDateString() : '—'}</td>
                 <td>{txn.plaidTransaction.merchant_name || txn.plaidTransaction.name}</td>
                 <td>{txn.plaidTransaction.amount}</td>
-                <td onClick={() => categoryOptions.length > 0 && setEditingTxnId(txn.transactionId)}
-                    style={{ cursor: categoryOptions.length > 0 ? 'pointer' : 'default' }}>
+                <td onClick={() => setEditingTxnId(txn.transactionId)}
+                    style={{ cursor: 'pointer' }}>
                   {editingTxnId === txn.transactionId ? (
                     <select
                       autoFocus
@@ -98,7 +98,7 @@ export default function AccountPage({ accountId }) {
                       onChange={e => handleCategoryChange(txn, e.target.value)}
                       onBlur={() => setEditingTxnId(null)}
                     >
-                      {categoryOptions.map(cat => (
+                      {(txn.plaidTransaction.amount < 0 ? creditCategories : categoryOptions).map(cat => (
                         <option key={cat} value={cat}>{cat}</option>
                       ))}
                     </select>

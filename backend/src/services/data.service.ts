@@ -61,7 +61,7 @@ export async function upsertAccount(userId: string, itemId: string, account: Acc
 
 export async function upsertTransactions(userId: string, itemId: string, transactions: PlaidTransaction[]) {
   return Promise.all(transactions.map(async txn => {
-    const category = await resolveCardCategory(txn.account_id, txn.personal_finance_category?.detailed);
+    const category = await resolveCardCategory(txn.account_id, txn.personal_finance_category?.detailed, txn.amount);
     const rewards = await calculateRewards(txn.account_id, category, txn.amount);
 
     return Transaction.findOneAndUpdate(

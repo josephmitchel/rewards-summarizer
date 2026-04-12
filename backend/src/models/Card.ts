@@ -50,7 +50,7 @@ const cardSchema = new mongoose.Schema<ICard>({
     id: String,
     name: String,
     description: String,
-    type: String,
+    type: { type: String },
     amount: Number,
     period: String,
     merchants: [String],
