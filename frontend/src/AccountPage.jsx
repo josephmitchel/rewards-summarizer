@@ -7,7 +7,12 @@ export default function AccountPage({ accountId }) {
   const [baseRedemptionValue, setBaseRedemptionValue] = useState(null)
   const [categoryOptions, setCategoryOptions] = useState([])
   const [creditCategories, setCreditCategories] = useState([])
+  const [cardBenefits, setCardBenefits] = useState([])
   const [editingTxnId, setEditingTxnId] = useState(null)
+  const [selectedMonth, setSelectedMonth] = useState(() => {
+    const now = new Date()
+    return { year: now.getFullYear(), month: now.getMonth() }
+  })
   const token = localStorage.getItem('token')
 
   useEffect(() => {
@@ -29,11 +34,71 @@ export default function AccountPage({ accountId }) {
         setRewardType(data.card?.rewardType ?? null)
         setBaseRedemptionValue(data.card?.baseRedemptionValue ?? null)
         setCategoryOptions(data.card?.rewards?.map(r => r.category) ?? [])
-        const benefitNames = data.card?.benefits?.map(b => b.name) ?? []
-        setCreditCategories(['Card Payment', 'Refund', ...benefitNames])
+        const benefits = data.card?.benefits ?? []
+        setCardBenefits(benefits)
+        setCreditCategories(['Card Payment', 'Refund', ...benefits.map(b => b.name)])
       })
       .catch(() => console.error('Failed to fetch card'))
   }, [accountId, token])
+
+  const prevMonth = () => setSelectedMonth(({ year, month }) =>
+    month === 0 ? { year: year - 1, month: 11 } : { year, month: month - 1 }
+  )
+  const nextMonth = () => setSelectedMonth(({ year, month }) =>
+    month === 11 ? { year: year + 1, month: 0 } : { year, month: month + 1 }
+  )
+
+  const monthLabel = new Date(selectedMonth.year, selectedMonth.month)
+    .toLocaleString('default', { month: 'long', year: 'numeric' })
+
+  // Filter transactions into the window relevant to a benefit's period
+  const getBenefitTransactions = (benefit) => {
+    return transactions.filter(txn => {
+      if (txn.category !== benefit.name) return false
+      const date = txn.plaidTransaction.authorized_date
+      if (!date) return false
+      const [y, m] = date.split('-').map(Number)
+      const txYear = y
+      const txMonth = m - 1 // 0-indexed
+
+      if (benefit.period === 'monthly') {
+        return txYear === selectedMonth.year && txMonth === selectedMonth.month
+      } else if (benefit.period === 'annually') {
+        return txYear === selectedMonth.year
+      } else if (benefit.period === 'semi-annually') {
+        const selectedHalf = Math.floor(selectedMonth.month / 6)
+        const txHalf = Math.floor(txMonth / 6)
+        return txYear === selectedMonth.year && txHalf === selectedHalf
+      }
+      return false
+    })
+  }
+
+  const getBenefitUsed = (benefit) =>
+    getBenefitTransactions(benefit)
+      .reduce((sum, txn) => sum + Math.abs(txn.plaidTransaction.amount), 0)
+
+  const getResetDate = (benefit) => {
+    const { year, month } = selectedMonth
+    if (benefit.period === 'monthly') {
+      const next = new Date(year, month + 1, 1)
+      return `1st of ${next.toLocaleString('default', { month: 'long', year: 'numeric' })}`
+    } else if (benefit.period === 'annually') {
+      return `January 1st, ${year + 1}`
+    } else if (benefit.period === 'semi-annually') {
+      const half = Math.floor(month / 6)
+      const next = half === 0 ? new Date(year, 6, 1) : new Date(year + 1, 0, 1)
+      return `${next.toLocaleString('default', { month: 'long' })} 1st, ${next.getFullYear()}`
+    }
+    return 'N/A'
+  }
+
+  const monthlyTransactions = transactions.filter(txn => {
+    const date = txn.plaidTransaction.authorized_date
+    if (!date) return false
+    const [y, m] = date.split('-').map(Number)
+    return y === selectedMonth.year && m - 1 === selectedMonth.month
+  })
 
   const handleCategoryChange = async (txn, newCategory) => {
     setEditingTxnId(null)
@@ -48,12 +113,18 @@ export default function AccountPage({ accountId }) {
     setTransactions(prev => prev.map(t => t.transactionId === txn.transactionId ? data.transaction : t))
   }
 
+  const benefitCredits = monthlyTransactions
+    .filter(txn => txn.plaidTransaction.amount < 0 && txn.category !== 'Card Payment' && txn.category !== 'Refund')
+    .reduce((sum, txn) => sum + Math.abs(txn.plaidTransaction.amount), 0)
+
   const calculateTotalRewards = () => {
     if (rewardType === 'cashback') {
-      return transactions.reduce((sum, txn) => sum + (txn.cashback ?? 0), 0).toFixed(2)
+      const purchaseCashback = monthlyTransactions.reduce((sum, txn) => sum + (txn.cashback ?? 0), 0)
+      return (purchaseCashback + benefitCredits).toFixed(2)
     } else if (rewardType === 'points') {
-      const totalPoints = transactions.reduce((sum, txn) => sum + (txn.points ?? 0), 0)
-      return baseRedemptionValue ? (totalPoints * baseRedemptionValue).toFixed(2) : `${totalPoints} points`
+      const totalPoints = monthlyTransactions.reduce((sum, txn) => sum + (txn.points ?? 0), 0)
+      const pointsCashback = baseRedemptionValue ? totalPoints * baseRedemptionValue : 0
+      return (pointsCashback + benefitCredits).toFixed(2)
     }
     return 'N/A'
   }
@@ -67,9 +138,30 @@ export default function AccountPage({ accountId }) {
       <p>Balance: {account.balances.current}</p>
       {account.mask && <p>Account ending in {account.mask}</p>}
 
+      <div>
+        <button onClick={prevMonth}>&#8592;</button>
+        <strong>{monthLabel}</strong>
+        <button onClick={nextMonth}>&#8594;</button>
+      </div>
+
+      {cardBenefits.length > 0 && (
+        <>
+          <h3>Benefits</h3>
+          {cardBenefits.map(benefit => {
+            const used = getBenefitUsed(benefit)
+            const resetDate = getResetDate(benefit)
+            return (
+              <p key={benefit.id}>
+                <strong>{benefit.name}</strong>: ${used.toFixed(2)} / ${benefit.amount} — resets {resetDate}
+              </p>
+            )
+          })}
+        </>
+      )}
+
       <h3>Transactions</h3>
       <p>Total Rewards: ${calculateTotalRewards()}</p>
-      {transactions.length === 0 ? (
+      {monthlyTransactions.length === 0 ? (
         <p>No transactions found.</p>
       ) : (
         <table>
@@ -84,7 +176,7 @@ export default function AccountPage({ accountId }) {
             </tr>
           </thead>
           <tbody>
-            {transactions.map(txn => (
+            {monthlyTransactions.map(txn => (
               <tr key={txn.plaidTransaction.transaction_id}>
                 <td>{txn.plaidTransaction.date ? new Date(txn.plaidTransaction.date).toLocaleDateString() : '—'}</td>
                 <td>{txn.plaidTransaction.merchant_name || txn.plaidTransaction.name}</td>
