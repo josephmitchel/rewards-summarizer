@@ -2,9 +2,73 @@ import mongoose from 'mongoose';
 import { AccountBase, ItemWithConsentFields, Transaction as PlaidTransaction } from 'plaid';
 import Item from '../models/Item.js';
 import Account from '../models/Account.js';
-import Transaction from '../models/Transaction.js';
+import Transaction, { ITransaction } from '../models/Transaction.js';
+import Card from '../models/Card.js';
+import Benefit from '../models/Benefit.js';
 import { encrypt } from './crypto.js';
-import { resolveCardCategory, calculateRewards } from './rewards.service.js';
+import { resolveCardCategory, calculateRewards, computeBenefitPeriod } from './rewards.service.js';
+
+// Sum |amount| across a set of transaction ObjectIds. Source of truth for Benefit.used.
+async function sumBenefitUsed(txnIds: mongoose.Types.ObjectId[]): Promise<number> {
+  if (!txnIds.length) return 0;
+  const txns = await Transaction.find({ _id: { $in: txnIds } }, { 'plaidTransaction.amount': 1 });
+  return txns.reduce((sum, t) => sum + Math.abs(t.plaidTransaction.amount), 0);
+}
+
+// Reconcile benefit membership for a transaction after upsert or category change.
+// Detaches from any stale benefit, attaches to the matching one (creating the
+// period doc if needed), and recomputes `used` from the linked transactions.
+export async function reconcileBenefitsForTransaction(txn: ITransaction): Promise<void> {
+  const account = await Account.findOne({ accountId: txn.accountId });
+  if (!account) return;
+  const card = await Card.findOne({ name: account.name, isActive: true });
+
+  const cardBenefit = card?.benefits?.find(b => b.name === txn.category && b.trackingType !== 'manual');
+  const txnDate = txn.plaidTransaction.authorized_date || txn.plaidTransaction.date;
+
+  let targetBenefitId: mongoose.Types.ObjectId | null = null;
+  if (cardBenefit && txnDate) {
+    const [y, m] = txnDate.split('-').map(Number);
+    const period = computeBenefitPeriod(cardBenefit.period, y, m - 1);
+    const target = await Benefit.findOneAndUpdate(
+      { userId: txn.userId, accountId: txn.accountId, benefitId: cardBenefit.id, period },
+      {
+        $setOnInsert: { used: 0, transactions: [] },
+        $set: { total: cardBenefit.amount, lastModified: new Date() },
+      },
+      { upsert: true, returnDocument: 'after' }
+    );
+    targetBenefitId = target!._id as mongoose.Types.ObjectId;
+  }
+
+  // Detach from any benefit that currently holds this txn but isn't the target.
+  const stale = await Benefit.find({
+    userId: txn.userId,
+    accountId: txn.accountId,
+    transactions: txn._id,
+    ...(targetBenefitId ? { _id: { $ne: targetBenefitId } } : {}),
+  });
+  for (const b of stale) {
+    b.transactions = b.transactions.filter(id => !id.equals(txn._id as mongoose.Types.ObjectId));
+    b.used = await sumBenefitUsed(b.transactions);
+    b.lastModified = new Date();
+    await b.save();
+  }
+
+  // Attach to target and recompute used (handles new link and amount changes).
+  if (targetBenefitId) {
+    const target = await Benefit.findById(targetBenefitId);
+    if (target) {
+      const txnObjectId = txn._id as mongoose.Types.ObjectId;
+      if (!target.transactions.some(id => id.equals(txnObjectId))) {
+        target.transactions.push(txnObjectId);
+      }
+      target.used = await sumBenefitUsed(target.transactions);
+      target.lastModified = new Date();
+      await target.save();
+    }
+  }
+}
 
 export async function upsertItem(
   userId: string,
@@ -64,7 +128,7 @@ export async function upsertTransactions(userId: string, itemId: string, transac
     const category = await resolveCardCategory(txn.account_id, txn.personal_finance_category?.detailed, txn.amount);
     const rewards = await calculateRewards(txn.account_id, category, txn.amount);
 
-    return Transaction.findOneAndUpdate(
+    const saved = await Transaction.findOneAndUpdate(
       { transactionId: txn.transaction_id },
       {
         $set: {
@@ -80,5 +144,7 @@ export async function upsertTransactions(userId: string, itemId: string, transac
       },
       { upsert: true, returnDocument: 'after' }
     );
+    if (saved) await reconcileBenefitsForTransaction(saved);
+    return saved;
   }));
 }

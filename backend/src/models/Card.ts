@@ -25,7 +25,8 @@ export interface ICard extends Document {
     description: string;
     type: string;
     amount: number;
-    period: string;
+    period: 'monthly' | 'annually' | 'semi-annually';
+    trackingType: 'automatic' | 'manual';
     merchants?: string[];
   }[];
 }
@@ -53,6 +54,7 @@ const cardSchema = new mongoose.Schema<ICard>({
     type: { type: String },
     amount: Number,
     period: String,
+    trackingType: { type: String, enum: ['automatic', 'manual'], default: 'automatic' },
     merchants: [String],
     _id: false,
   }],

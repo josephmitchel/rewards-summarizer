@@ -1,12 +1,15 @@
 import { Router, Request, Response, NextFunction } from 'express';
+import mongoose from 'mongoose';
 import jwt from 'jsonwebtoken';
 import User from '../models/User.js';
 import Transaction from '../models/Transaction.js';
 import Item from '../models/Item.js';
 import Account from '../models/Account.js';
 import Card from '../models/Card.js';
+import Benefit from '../models/Benefit.js';
 import { createLinkToken, exchangePublicToken, getItem, getAccounts, syncTransactions, itemRemove } from '../services/plaid.service.js';
-import { upsertItem, upsertAccount, upsertTransactions } from '../services/data.service.js';
+import { upsertItem, upsertAccount, upsertTransactions, reconcileBenefitsForTransaction } from '../services/data.service.js';
+import { computeBenefitPeriod } from '../services/rewards.service.js';
 import { decrypt } from '../services/crypto.js';
 
 declare global {
@@ -201,6 +204,150 @@ router.get('/accounts/:accountId', requireAuth, async (req: Request, res: Respon
   }
 });
 
+// Retrieve benefit usage records for an account.
+// Month mode (?mode=month&year=Y&month=M): one doc per card benefit for the
+// period containing that month; lazy-creates docs on first access.
+// Year mode (?mode=year&year=Y): one aggregated row per card benefit, summing
+// `used` and `total` across every Benefit doc whose period falls within Y.
+// Year mode does not lazy-create — it only surfaces existing data.
+router.get('/accounts/:accountId/benefits', requireAuth, async (req: Request, res: Response, next: NextFunction) => {
+  try {
+    const userId = req.user!.userId;
+    const account = await Account.findOne({ userId, accountId: req.params.accountId });
+    if (!account) { res.status(404).json({ error: 'Account not found' }); return; }
+
+    const card = await Card.findOne({ name: account.name, isActive: true });
+    if (!card?.benefits?.length) { res.json({ benefits: [] }); return; }
+
+    const mode = (req.query.mode as string) ?? 'month';
+    const year = Number(req.query.year);
+    if (!Number.isInteger(year)) {
+      res.status(400).json({ error: 'year query param required' });
+      return;
+    }
+
+    // Earliest transaction date for this account — treated as the "activation"
+    // month. Any period ending before this is considered outside the card's lifetime.
+    const firstTxn = await Transaction.findOne(
+      { userId, accountId: req.params.accountId },
+      { 'plaidTransaction.authorized_date': 1 }
+    ).sort({ 'plaidTransaction.authorized_date': 1 });
+    const firstDate = firstTxn?.plaidTransaction?.authorized_date;
+    const first = firstDate ? { year: Number(firstDate.slice(0, 4)), month: Number(firstDate.slice(5, 7)) } : null;
+
+    if (mode === 'year') {
+      if (first && first.year > year) { res.json({ benefits: [] }); return; }
+      const yy = String(year % 100).padStart(2, '0');
+      const docs = await Benefit.find({
+        userId,
+        accountId: req.params.accountId,
+        period: { $regex: `^${yy}\\d{2}-${yy}\\d{2}$` },
+      });
+      const firstValidMonth = first && first.year === year ? first.month : 1;
+      const byBenefitId = new Map<string, { used: number; total: number; docIds: mongoose.Types.ObjectId[] }>();
+      for (const d of docs) {
+        const endMonth = Number(d.period.split('-')[1].slice(2));
+        if (endMonth < firstValidMonth) continue;
+        const agg = byBenefitId.get(d.benefitId) ?? { used: 0, total: 0, docIds: [] };
+        agg.used += d.used;
+        agg.total += d.total;
+        agg.docIds.push(d._id as mongoose.Types.ObjectId);
+        byBenefitId.set(d.benefitId, agg);
+      }
+      const benefits = card.benefits.map(cb => {
+        const agg = byBenefitId.get(cb.id) ?? { used: 0, total: 0, docIds: [] };
+        return {
+          accountId: req.params.accountId,
+          benefitId: cb.id,
+          name: cb.name,
+          description: cb.description,
+          periodType: cb.period,
+          trackingType: cb.trackingType ?? 'automatic',
+          period: `${yy}01-${yy}12`,
+          used: agg.used,
+          total: agg.total,
+          aggregatedDocIds: agg.docIds,
+        };
+      });
+      res.json({ benefits });
+      return;
+    }
+
+    const month = Number(req.query.month);
+    if (!Number.isInteger(month) || month < 0 || month > 11) {
+      res.status(400).json({ error: 'month query param required in month mode (0-indexed)' });
+      return;
+    }
+
+    // Reject requests for months before the card's first transaction — don't
+    // render benefits and don't lazy-create docs the user never earned.
+    if (first && (year < first.year || (year === first.year && month + 1 < first.month))) {
+      res.json({ benefits: [] });
+      return;
+    }
+
+    const benefits = await Promise.all(card.benefits.map(async cb => {
+      const period = computeBenefitPeriod(cb.period, year, month);
+      const doc = await Benefit.findOneAndUpdate(
+        { userId, accountId: req.params.accountId, benefitId: cb.id, period },
+        {
+          $setOnInsert: { used: 0, transactions: [], lastModified: new Date() },
+          $set: { total: cb.amount },
+        },
+        { upsert: true, returnDocument: 'after' }
+      );
+      return {
+        _id: doc!._id,
+        accountId: req.params.accountId,
+        benefitId: cb.id,
+        name: cb.name,
+        description: cb.description,
+        periodType: cb.period,
+        trackingType: cb.trackingType ?? 'automatic',
+        period: doc!.period,
+        used: doc!.used,
+        total: doc!.total,
+        transactions: doc!.transactions,
+      };
+    }));
+
+    res.json({ benefits });
+  } catch (err) {
+    next(err);
+  }
+});
+
+// Manually update the `used` amount on a benefit doc (only allowed for
+// benefits whose card template is trackingType: 'manual').
+router.patch('/benefits/:benefitDocId', requireAuth, async (req: Request, res: Response, next: NextFunction) => {
+  try {
+    const userId = req.user!.userId;
+    const { used } = req.body as { used: number };
+    if (typeof used !== 'number' || !Number.isFinite(used) || used < 0) {
+      res.status(400).json({ error: 'used must be a non-negative number' });
+      return;
+    }
+
+    const benefit = await Benefit.findOne({ _id: req.params.benefitDocId, userId });
+    if (!benefit) { res.status(404).json({ error: 'Benefit not found' }); return; }
+
+    const account = await Account.findOne({ userId, accountId: benefit.accountId });
+    const card = account ? await Card.findOne({ name: account.name, isActive: true }) : null;
+    const cardBenefit = card?.benefits?.find(b => b.id === benefit.benefitId);
+    if (cardBenefit?.trackingType !== 'manual') {
+      res.status(400).json({ error: 'Benefit is not manually tracked' });
+      return;
+    }
+
+    benefit.used = used;
+    benefit.lastModified = new Date();
+    await benefit.save();
+    res.json({ benefit });
+  } catch (err) {
+    next(err);
+  }
+});
+
 // Retrieve all transactions for a specific account
 router.get('/accounts/:accountId/transactions', requireAuth, async (req: Request, res: Response, next: NextFunction) => {
   try {
@@ -228,6 +375,7 @@ router.post('/transactions/reprocess', requireAuth, async (req: Request, res: Re
     const snapshot = existing.map(t => ({ itemId: t.itemId, plaidTransaction: t.plaidTransaction }));
 
     await Transaction.deleteMany({ userId });
+    await Benefit.deleteMany({ userId });
 
     // Group by itemId and re-run through upsertTransactions
     const byItem = new Map<string, typeof snapshot>();
@@ -262,6 +410,7 @@ router.patch('/transactions/:transactionId', requireAuth, async (req: Request, r
     txn.cashback = rewards?.cashback ?? 0;
     txn.points = rewards?.points ?? 0;
     await txn.save();
+    await reconcileBenefitsForTransaction(txn);
 
     res.json({ transaction: txn });
   } catch (err) {
@@ -274,6 +423,27 @@ router.get('/transactions', requireAuth, async (req: Request, res: Response, nex
   try {
     const transactions = await Transaction.find({ userId: req.user!.userId }).sort({ 'plaidTransaction.date': -1 });
     res.json({ transactions });
+  } catch (err) {
+    next(err);
+  }
+});
+
+// Earliest and latest authorized_date across the user's transactions (YYYY-MM-DD).
+// Returns { earliest: null, latest: null } if the user has no transactions.
+router.get('/transactions/range', requireAuth, async (req: Request, res: Response, next: NextFunction) => {
+  try {
+    const userId = new mongoose.Types.ObjectId(req.user!.userId);
+    const [range] = await Transaction.aggregate([
+      { $match: { userId } },
+      {
+        $group: {
+          _id: null,
+          earliest: { $min: '$plaidTransaction.authorized_date' },
+          latest: { $max: '$plaidTransaction.authorized_date' },
+        },
+      },
+    ]);
+    res.json({ earliest: range?.earliest ?? null, latest: range?.latest ?? null });
   } catch (err) {
     next(err);
   }

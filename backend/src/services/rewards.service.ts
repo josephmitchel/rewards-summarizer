@@ -2,6 +2,25 @@ import Account from '../models/Account.js';
 import Card from '../models/Card.js';
 import TransactionCategory from '../models/TransactionCategory.js';
 
+// Encode a benefit's period window as "YYMM-YYMM" for the given calendar month (0-indexed).
+export function computeBenefitPeriod(
+  periodType: 'monthly' | 'annually' | 'semi-annually',
+  year: number,
+  month0: number,
+): string {
+  const yy = String(year % 100).padStart(2, '0');
+  if (periodType === 'monthly') {
+    const mm = String(month0 + 1).padStart(2, '0');
+    return `${yy}${mm}-${yy}${mm}`;
+  }
+  if (periodType === 'annually') {
+    return `${yy}01-${yy}12`;
+  }
+  // semi-annually
+  const firstHalf = month0 < 6;
+  return firstHalf ? `${yy}01-${yy}06` : `${yy}07-${yy}12`;
+}
+
 // Resolves a Plaid detailed category string to the user-facing category using
 // the transactionCategories collection. Matching priority:
 //   1. Exact match (e.g. "FOOD_AND_DRINK_GROCERIES")
