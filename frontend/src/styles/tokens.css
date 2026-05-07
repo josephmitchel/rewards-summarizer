@@ -1,0 +1,59 @@
+:root {
+  /* Brand */
+  --color-brand-primary: #5b8ff9;
+  --color-brand-dark: #1a1f36;
+
+  /* Surfaces */
+  --color-surface-base: #ffffff;
+  --color-surface-raised: #f4f6f9;
+  --color-surface-app: #ffffff;
+
+  /* Text */
+  --color-text-primary: #070707;
+  --color-text-secondary: #2c2f34;
+  --color-text-muted: #6b7280;
+  --color-text-inverse: #f8fafc;
+
+  /* Borders */
+  --color-border: #e5e7eb;
+
+  /* Semantic */
+  --color-success: #16a34a;
+  --color-danger: #dc2626;
+  --color-warning: #f59e0b;
+  --color-info: #0891b2;
+
+  /* Typography — bundled shorthand: weight size/line-height family */
+  --font-family-base: 'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+
+  --font-h4: 600 20px/28px var(--font-family-base);
+  --font-large: 600 18px/28px var(--font-family-base);
+  --font-p-ui: 400 16px/24px var(--font-family-base);
+  --font-body: 400 14px/24px var(--font-family-base);
+  --font-small: 500 14px/14px var(--font-family-base);
+  --font-graph: 400 11px/16px var(--font-family-base);
+
+  /* Letter-spacing (h4 has -0.5px in Figma) */
+  --letter-spacing-h4: -0.5px;
+
+  /* Spacing scale */
+  --space-1: 4px;
+  --space-2: 8px;
+  --space-3: 12px;
+  --space-4: 16px;
+  --space-6: 24px;
+  --space-8: 32px;
+  --space-12: 48px;
+  --space-16: 64px;
+
+  /* Radii */
+  --radius-sm: 8px;
+  --radius-md: 16px;
+  --radius-lg: 25px;
+
+  /* Layout */
+  --layout-sidebar-width: 240px;
+  --layout-header-height: 80px;
+  --layout-content-max-width: 1440px;
+  --layout-min-width: 1024px;
+}

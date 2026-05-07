@@ -1,5 +1,5 @@
 import { useState } from 'react'
-import { getResetDate } from '../utils/rewards'
+import { getResetDate } from '../../utils/rewards'
 
 export default function BenefitsSection({ benefits, selectedPeriod, onUsedChange, title = 'Benefits' }) {
   const [editingId, setEditingId] = useState(null)

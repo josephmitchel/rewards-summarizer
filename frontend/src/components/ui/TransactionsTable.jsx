@@ -1,5 +1,5 @@
 import { useState } from 'react'
-import { getTransactionValue } from '../utils/rewards'
+import { getTransactionValue } from '../../utils/rewards'
 
 export default function TransactionsTable({ transactions, cardByAccountId, accountNameById, onCategoryChange, showAccountColumn = false }) {
   const [editingTxnId, setEditingTxnId] = useState(null)

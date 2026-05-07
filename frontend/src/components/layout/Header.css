@@ -1,0 +1,31 @@
+.header {
+  height: var(--layout-header-height);
+  background: var(--color-surface-base);
+  display: flex;
+  align-items: center;
+  position: sticky;
+  top: 0;
+  z-index: 1;
+  flex-shrink: 0;
+}
+
+.header__inner {
+  padding: 0 56px;
+  display: flex;
+  flex-direction: column;
+  justify-content: center;
+}
+
+.header__date {
+  font-family: var(--font-family-base);
+  font-weight: 700;
+  font-size: 11px;
+  line-height: 16px;
+  color: var(--color-text-secondary);
+}
+
+.header__greeting {
+  font: var(--font-large);
+  color: var(--color-text-primary);
+  margin: 0;
+}

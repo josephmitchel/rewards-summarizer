@@ -1,0 +1,28 @@
+.app-shell {
+  display: flex;
+  min-height: 100vh;
+  min-width: var(--layout-min-width);
+  background: var(--color-surface-base);
+}
+
+.app-shell__main {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  min-width: 0;
+}
+
+.app-shell__content {
+  flex: 1;
+  padding: 0 var(--space-3) var(--space-3);
+  background: var(--color-surface-base);
+}
+
+.app-shell__content-inner {
+  background: var(--color-surface-raised);
+  border-radius: 40px 40px 0 0;
+  padding: var(--space-6);
+  max-width: var(--layout-content-max-width);
+  margin: 0 auto;
+  min-height: calc(100vh - var(--layout-header-height) - var(--space-3));
+}
