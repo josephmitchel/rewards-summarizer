@@ -1,0 +1,29 @@
+.card {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-6);
+  background: var(--color-surface-base);
+  border: 1px solid var(--color-card-border);
+  border-radius: var(--radius-card);
+  padding: var(--space-6);
+}
+
+.card__header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: var(--space-4);
+}
+
+.card__title {
+  font: var(--font-card-title);
+  color: var(--color-heading);
+  margin: 0;
+  padding: 0;
+  transition: color 150ms;
+}
+
+.card__action {
+  display: inline-flex;
+  align-items: center;
+}

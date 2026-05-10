@@ -1,5 +1,6 @@
 import { useEffect } from 'react'
 import { useAppData } from '../../state/useAppData'
+import Card from '../../components/ui/Card'
 import './DashboardPage.css'
 
 export default function DashboardPage() {
@@ -11,16 +12,10 @@ export default function DashboardPage() {
 
   return (
     <div className="dashboard">
-      <div className="dashboard__placeholder dashboard__placeholder--rewards">
-        <h2 className="dashboard__placeholder-title">Rewards Earned</h2>
-      </div>
+      <Card title="Rewards Earned" className="dashboard__card--rewards" />
       <div className="dashboard__right-column">
-        <div className="dashboard__placeholder dashboard__placeholder--accounts">
-          <h2 className="dashboard__placeholder-title">Accounts</h2>
-        </div>
-        <div className="dashboard__placeholder dashboard__placeholder--upcoming">
-          <h2 className="dashboard__placeholder-title">Upcoming</h2>
-        </div>
+        <Card title="Accounts" className="dashboard__card--accounts" />
+        <Card title="Upcoming" className="dashboard__card--upcoming" />
       </div>
     </div>
   )
