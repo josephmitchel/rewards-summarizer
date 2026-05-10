@@ -23,7 +23,7 @@ export default function Sidebar() {
     <aside className="sidebar">
       <div className="sidebar__top">
         <Link to="/dashboard" className="sidebar__logo">
-          <span className="sidebar__logo-earn">Earn</span>
+          <span className="sidebar__logo-earn">Spend</span>
           <span className="sidebar__logo-right">Right</span>
         </Link>
         <div className="sidebar__top-icons">
