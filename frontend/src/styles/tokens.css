@@ -13,6 +13,7 @@
   --color-text-secondary: #2c2f34;
   --color-text-muted: #6b7280;
   --color-text-inverse: #f8fafc;
+  --color-heading: #111111;
 
   /* Borders */
   --color-border: #e5e7eb;
@@ -32,6 +33,7 @@
   --font-body: 400 14px/24px var(--font-family-base);
   --font-small: 500 14px/14px var(--font-family-base);
   --font-graph: 400 11px/16px var(--font-family-base);
+  --font-card-title: 500 1.125rem/1.33 var(--font-family-base);
 
   /* Letter-spacing (h4 has -0.5px in Figma) */
   --letter-spacing-h4: -0.5px;
@@ -50,6 +52,7 @@
   --radius-sm: 8px;
   --radius-md: 16px;
   --radius-lg: 25px;
+  --radius-card: 24px;
 
   /* Layout */
   --layout-sidebar-width: 240px;

@@ -1,0 +1,32 @@
+.dashboard {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: var(--space-6);
+  align-items: start;
+}
+
+.dashboard__right-column {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-6);
+}
+
+.dashboard__placeholder {
+  background: var(--color-surface-base);
+  border: 1px solid rgb(233, 233, 233);
+  border-radius: var(--radius-card);
+  padding: var(--space-6);
+  color: var(--color-text-muted);
+}
+
+.dashboard__placeholder--rewards { min-height: 400px; }
+.dashboard__placeholder--accounts { min-height: 256px; }
+.dashboard__placeholder--upcoming { min-height: 322px; }
+
+.dashboard__placeholder-title {
+  font: var(--font-card-title);
+  color: var(--color-heading);
+  margin: 0;
+  padding: 0;
+  transition: color 150ms;
+}
