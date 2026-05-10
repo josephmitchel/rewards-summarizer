@@ -13,7 +13,7 @@
   --color-text-secondary: #2c2f34;
   --color-text-muted: #6b7280;
   --color-text-inverse: #f8fafc;
-  --color-heading: #111111;
+  --color-heading: rgb(17, 17, 17);
 
   /* Borders */
   --color-border: #e5e7eb;
