@@ -6,6 +6,8 @@ export interface IItem extends Document {
   accessToken: string | null;
   institutionId: string | null;
   institutionName: string | null;
+  institutionLogo: string | null;
+  institutionPrimaryColor: string | null;
   cursor: string | null;
   webhook: string | null;
   error: object | null;
@@ -26,6 +28,8 @@ const itemSchema = new mongoose.Schema<IItem>({
   accessToken: { type: String, default: null },
   institutionId: { type: String, default: null },
   institutionName: { type: String, default: null },
+  institutionLogo: { type: String, default: null },
+  institutionPrimaryColor: { type: String, default: null },
   cursor: { type: String, default: null },
   webhook: { type: String, default: null },
   error: { type: mongoose.Schema.Types.Mixed, default: null },

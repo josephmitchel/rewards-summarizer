@@ -7,7 +7,7 @@ import Item from '../models/Item.js';
 import Account from '../models/Account.js';
 import Card from '../models/Card.js';
 import Benefit from '../models/Benefit.js';
-import { createLinkToken, exchangePublicToken, getItem, getAccounts, syncTransactions, itemRemove } from '../services/plaid.service.js';
+import { createLinkToken, exchangePublicToken, getItem, getAccounts, syncTransactions, itemRemove, getInstitutionById } from '../services/plaid.service.js';
 import { upsertItem, upsertAccount, upsertTransactions, reconcileBenefitsForTransaction } from '../services/data.service.js';
 import { computeBenefitPeriod } from '../services/rewards.service.js';
 import { decrypt } from '../services/crypto.js';
@@ -84,12 +84,23 @@ router.post('/item/public_token/exchange', requireAuth, async (req: Request, res
     const { transactions, cursor } = await syncTransactions(accessToken);
     const userId = req.user!.userId;
 
+    // Fetch optional institution metadata (logo, primary color). Soft-fail
+    // if the lookup errors so we don't block linking on metadata issues.
+    let institutionMetadata: { logo: string | null; primaryColor: string | null } | undefined;
+    if (item.institution_id) {
+      try {
+        institutionMetadata = await getInstitutionById(item.institution_id);
+      } catch (err) {
+        console.error(`Failed to fetch institution metadata for ${item.institution_id}:`, err);
+      }
+    }
+
     // Add the item to database if it doesn't already exist
     const institutionId = item.institution_id;
     const existingItem = item.institution_id ? await Item.findOne({ userId, institutionId }) : null;
     const resolvedItemId = existingItem ? existingItem.itemId : itemId;
     if (!existingItem) {
-      await upsertItem(userId, accessToken, item);
+      await upsertItem(userId, accessToken, item, institutionMetadata);
       await Item.updateOne({ itemId }, { cursor });
     }
 
@@ -142,7 +153,29 @@ router.post('/transactions/sync', requireAuth, async (req: Request, res: Respons
 // Retrieve all items for the logged-in user
 router.get('/items', requireAuth, async (req: Request, res: Response, next: NextFunction) => {
   try {
-    const items = await Item.find({ userId: req.user!.userId }, { itemId: 1, institutionName: 1, institutionId: 1 });
+    const items = await Item.find(
+      { userId: req.user!.userId },
+      { itemId: 1, institutionName: 1, institutionId: 1, institutionLogo: 1, institutionPrimaryColor: 1 }
+    );
+
+    // Lazy-backfill institution metadata for any item missing it. Existing items
+    // linked before this metadata was tracked won't have logos until we fetch.
+    for (const item of items) {
+      if (item.institutionId && !item.institutionLogo) {
+        try {
+          const meta = await getInstitutionById(item.institutionId);
+          await Item.updateOne(
+            { _id: item._id },
+            { institutionLogo: meta.logo, institutionPrimaryColor: meta.primaryColor }
+          );
+          item.institutionLogo = meta.logo;
+          item.institutionPrimaryColor = meta.primaryColor;
+        } catch (err) {
+          console.error(`Failed to backfill institution metadata for ${item.itemId}:`, err);
+        }
+      }
+    }
+
     res.json({ items });
   } catch (err) {
     next(err);

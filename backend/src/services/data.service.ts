@@ -74,6 +74,7 @@ export async function upsertItem(
   userId: string,
   accessToken: string,
   plaidItem: ItemWithConsentFields,
+  institutionMetadata?: { logo: string | null; primaryColor: string | null },
 ) {
   return Item.findOneAndUpdate(
     { itemId: plaidItem.item_id },
@@ -83,6 +84,8 @@ export async function upsertItem(
       accessToken: encrypt(accessToken),
       institutionId: plaidItem.institution_id ?? null,
       institutionName: plaidItem.institution_name ?? null,
+      institutionLogo: institutionMetadata?.logo ?? null,
+      institutionPrimaryColor: institutionMetadata?.primaryColor ?? null,
       webhook: plaidItem.webhook,
       error: plaidItem.error,
       availableProducts: plaidItem.available_products,

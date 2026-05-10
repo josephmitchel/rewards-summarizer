@@ -83,6 +83,22 @@ export async function getItem(accessToken: string): Promise<ItemWithConsentField
   return response.data.item;
 }
 
+// Retrieve institution metadata (logo, primary_color, url) by id
+// https://plaid.com/docs/api/institutions/#institutionsget_by_id
+export async function getInstitutionById(institutionId: string): Promise<{ logo: string | null; primaryColor: string | null; name: string }> {
+  const response = await getClient().institutionsGetById({
+    institution_id: institutionId,
+    country_codes: getCountryCodes(),
+    options: { include_optional_metadata: true },
+  });
+  const inst = response.data.institution;
+  return {
+    logo: inst.logo ?? null,
+    primaryColor: inst.primary_color ?? null,
+    name: inst.name,
+  };
+}
+
 // Retrieve all accounts for an item
 // https://plaid.com/docs/api/accounts/#accountsget
 export async function getAccounts(accessToken: string): Promise<AccountBase[]> {
