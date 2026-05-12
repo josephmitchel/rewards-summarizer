@@ -1,0 +1,39 @@
+.rewards-card__delta {
+  display: flex;
+  align-items: center;
+  gap: var(--space-2);
+  max-width: 200px;
+}
+
+.rewards-card__delta-icon {
+  flex-shrink: 0;
+}
+
+.rewards-card__delta-icon--up {
+  color: var(--color-success);
+}
+
+.rewards-card__delta-icon--down {
+  color: var(--color-danger);
+}
+
+.rewards-card__delta-text {
+  font: var(--font-graph);
+  color: var(--color-text-primary);
+}
+
+.rewards-card__big-number {
+  font: 600 32px var(--font-family-base);
+  letter-spacing: -0.6px;
+  color: var(--color-text-primary);
+  margin: 8px 0 32px 0;
+}
+
+.rewards-card__chart {
+  flex: 1;
+  min-height: 160px;
+}
+
+.rewards-card__action {
+  align-self: flex-start;
+}

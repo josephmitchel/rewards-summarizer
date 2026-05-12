@@ -31,3 +31,13 @@ export function periodKeyToPeriod(key) {
   const [year, month] = rest.split('-').map(Number)
   return { mode: 'month', year, month }
 }
+
+export function getPriorMonth(period) {
+  if (period.month === 0) return { mode: 'month', year: period.year - 1, month: 11 }
+  return { mode: 'month', year: period.year, month: period.month - 1 }
+}
+
+export function currentMonthPeriod() {
+  const now = new Date()
+  return { mode: 'month', year: now.getFullYear(), month: now.getMonth() }
+}

@@ -83,3 +83,53 @@ export function calculateCashbackValue(transactions, card, selectedPeriod) {
   const rewardValue = filtered.reduce((sum, txn) => sum + getTransactionValue(txn, card), 0)
   return rewardValue + benefitCredits
 }
+
+// Cumulative reward value per day for a single month period across all accounts.
+// stopAtToday: when the period is the current month, truncate the line at today
+// so the chart visually reflects "month-to-date" rather than projecting to month-end.
+export function getCumulativeRewardsByDay(accounts, accountCache, period, options = {}) {
+  const { stopAtToday = false } = options
+  const daysInMonth = new Date(period.year, period.month + 1, 0).getDate()
+  const today = new Date()
+  const isCurrentMonth = period.year === today.getFullYear() && period.month === today.getMonth()
+  const lastDay = stopAtToday && isCurrentMonth ? today.getDate() : daysInMonth
+
+  const rewardByDay = {}
+  for (const account of accounts) {
+    const cached = accountCache[account.accountId]
+    if (!cached) continue
+    const inPeriod = filterByPeriod(cached.transactions, period)
+    for (const txn of inPeriod) {
+      const date = txn.plaidTransaction.authorized_date
+      if (!date) continue
+      const day = parseInt(date.split('-')[2], 10)
+      const reward = getTransactionValue(txn, cached.card)
+      rewardByDay[day] = (rewardByDay[day] || 0) + reward
+    }
+  }
+
+  const result = []
+  let cumulative = 0
+  for (let day = 1; day <= daysInMonth; day++) {
+    cumulative += (rewardByDay[day] || 0)
+    result.push({ day, value: day > lastDay ? null : cumulative })
+  }
+  return result
+}
+
+// Combined data array for a TrendChart comparing a current month against the prior month.
+// Shape: [{ x: 1, current: number|null, prior: number|null }, ...]
+export function getMonthlyTrendData(accounts, accountCache, currentPeriod, priorPeriod) {
+  const currentByDay = getCumulativeRewardsByDay(accounts, accountCache, currentPeriod, { stopAtToday: true })
+  const priorByDay = getCumulativeRewardsByDay(accounts, accountCache, priorPeriod)
+  const maxDays = Math.max(currentByDay.length, priorByDay.length)
+  const result = []
+  for (let i = 0; i < maxDays; i++) {
+    result.push({
+      x: i + 1,
+      current: currentByDay[i]?.value ?? null,
+      prior: priorByDay[i]?.value ?? null,
+    })
+  }
+  return result
+}

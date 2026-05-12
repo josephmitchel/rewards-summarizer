@@ -7,7 +7,7 @@ export default function Card({ title, action, children, className }) {
     <div className={classes}>
       {hasHeader && (
         <div className="card__header">
-          {title != null && <h2 className="card__title">{title}</h2>}
+          {title != null && <h6 className="card__title">{title}</h6>}
           {action != null && <div className="card__action">{action}</div>}
         </div>
       )}
