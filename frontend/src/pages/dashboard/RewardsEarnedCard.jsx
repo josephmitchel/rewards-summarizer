@@ -25,6 +25,8 @@ const ordinal = (n) => {
 export default function RewardsEarnedCard() {
   const { accounts, accountCache } = useAppData()
 
+  const isLoading = accounts.length > 0 && accounts.some(a => !accountCache[a.accountId])
+
   const period = useMemo(() => currentMonthPeriod(), [])
   const priorPeriod = useMemo(() => getPriorMonth(period), [period])
 
@@ -67,7 +69,9 @@ export default function RewardsEarnedCard() {
     return null
   }
 
-  const deltaBadge = (deltaIsPositive || deltaIsNegative) ? (
+  const hasData = totalCurrent > 0 || totalPrior > 0
+
+  const deltaBadge = !isLoading && (deltaIsPositive || deltaIsNegative) ? (
     <div className="rewards-card__delta">
       {deltaIsPositive
         ? <ArrowUpCircle size={24} className="rewards-card__delta-icon rewards-card__delta-icon--up" />
@@ -80,15 +84,23 @@ export default function RewardsEarnedCard() {
 
   return (
     <Card title="Rewards Earned" action={deltaBadge} className="rewards-card">
-      <div className="rewards-card__big-number">{formatDollars(totalCurrent)}</div>
+      <div className="rewards-card__big-number">
+        {isLoading ? '—' : formatDollars(totalCurrent)}
+      </div>
       <div className="rewards-card__chart">
-        <TrendChart
-          data={trendData}
-          yFormatter={formatDollars}
-          xFormatter={ordinal}
-          tooltipContent={tooltipContent}
-          legend={{ current: 'This Month', prior: 'Last Month' }}
-        />
+        {isLoading && <div className="rewards-card__placeholder">Loading…</div>}
+        {!isLoading && !hasData && (
+          <div className="rewards-card__placeholder">No rewards yet this month.</div>
+        )}
+        {!isLoading && hasData && (
+          <TrendChart
+            data={trendData}
+            yFormatter={formatDollars}
+            xFormatter={ordinal}
+            tooltipContent={tooltipContent}
+            legend={{ current: 'This Month', prior: 'Last Month' }}
+          />
+        )}
       </div>
       <Button as={Link} to="/spending" variant="secondary" className="rewards-card__action">
         See All Spending Insights

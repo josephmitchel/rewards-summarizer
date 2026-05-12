@@ -10,7 +10,3 @@
   flex-direction: column;
   gap: var(--space-6);
 }
-
-.dashboard__card--rewards { min-height: 400px; }
-.dashboard__card--accounts { min-height: 256px; }
-.dashboard__card--upcoming { min-height: 322px; }
